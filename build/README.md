@@ -1,6 +1,6 @@
-# Euro-Office Desktop Editors Builds
+# AUTARQ Office Desktop Editors Builds
 
-This directory contains the reproducible build entrypoints for Euro-Office
+This directory contains the reproducible build entrypoints for AUTARQ Office
 Desktop Editors.
 
 ## Clone
@@ -8,7 +8,7 @@ Desktop Editors.
 Clone the repository with submodules:
 
 ```sh
-git clone --recurse-submodules https://github.com/Euro-Office/DesktopEditors.git
+git clone --recurse-submodules ssh://git@repo.mwaysolutions.com:2022/blockscape/autarq/office/desktop-apps/DesktopEditors.git
 ```
 
 If the repository was cloned without submodules, initialize them before building:

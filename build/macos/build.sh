@@ -7,7 +7,29 @@ REPO_ROOT="$(cd "${BUILD_DIR}/.." && pwd)"
 
 PRODUCT_FAMILY_NAME="${PRODUCT_FAMILY_NAME:-AUTARQ}"
 PRODUCT_NAME="${PRODUCT_NAME:-${PRODUCT_FAMILY_NAME} Office}"
+PRODUCT_SLUG="${PRODUCT_SLUG:-autarq-office}"
+PRODUCT_REPO_URL="${PRODUCT_REPO_URL:-https://repo.mwaysolutions.com/blockscape/autarq/office/desktop-apps}"
 BUNDLE_ID="${PRODUCT_BUNDLE_IDENTIFIER:-com.autarq.office}"
+LEGACY_PRODUCT_FAMILY_NAME="${LEGACY_PRODUCT_FAMILY_NAME:-}"
+if [[ -z "${LEGACY_PRODUCT_FAMILY_NAME}" ]]; then
+  LEGACY_PRODUCT_FAMILY_NAME="Euro""-Office"
+fi
+LEGACY_PRODUCT_SPACE_NAME="${LEGACY_PRODUCT_SPACE_NAME:-}"
+if [[ -z "${LEGACY_PRODUCT_SPACE_NAME}" ]]; then
+  LEGACY_PRODUCT_SPACE_NAME="Euro ""Office"
+fi
+LEGACY_PRODUCT_JOINED_NAME="${LEGACY_PRODUCT_JOINED_NAME:-}"
+if [[ -z "${LEGACY_PRODUCT_JOINED_NAME}" ]]; then
+  LEGACY_PRODUCT_JOINED_NAME="Euro""Office"
+fi
+LEGACY_PRODUCT_SLUG="${LEGACY_PRODUCT_SLUG:-}"
+if [[ -z "${LEGACY_PRODUCT_SLUG}" ]]; then
+  LEGACY_PRODUCT_SLUG="euro""-office"
+fi
+LEGACY_PRODUCT_MARK_NAME="${LEGACY_PRODUCT_MARK_NAME:-}"
+if [[ -z "${LEGACY_PRODUCT_MARK_NAME}" ]]; then
+  LEGACY_PRODUCT_MARK_NAME="euro""OfficeMark"
+fi
 MACOS_PRODUCTS="${EO_MACOS_PRODUCTS:-split}"
 SCHEME="${SCHEME:-ONLYOFFICE-arm}"
 ARCH="${1:-}"
@@ -981,6 +1003,150 @@ resign_app() {
   codesign "${codesign_args[@]}" "${app}"
 }
 
+sanitize_exported_app_resources() {
+  local app="$1"
+  local resources_dir="${app}/Contents/Resources"
+  local webapps_dir="${resources_dir}/editors/web-apps"
+  local legacy_theme_dir="${webapps_dir}/theme/${LEGACY_PRODUCT_SLUG}"
+  local product_theme_dir="${webapps_dir}/theme/${PRODUCT_SLUG}"
+  local brand_script="${DESKTOP_APPS_DIR}/macos/scripts/brand-vendor-resources.sh"
+
+  if [[ ! -d "${resources_dir}" ]]; then
+    return
+  fi
+
+  EO_REPO_ROOT="${REPO_ROOT}" \
+  EO_PRODUCT_NAME="${PRODUCT_NAME}" \
+  EO_PRODUCT_SLUG="${PRODUCT_SLUG}" \
+  EO_PRODUCT_URL="${PRODUCT_REPO_URL}" \
+  EO_PRODUCT_BUNDLE_ID="${BUNDLE_ID}" \
+  EO_LEGACY_DASH="${LEGACY_PRODUCT_FAMILY_NAME}" \
+  EO_LEGACY_SPACE="${LEGACY_PRODUCT_SPACE_NAME}" \
+  EO_LEGACY_JOINED="${LEGACY_PRODUCT_JOINED_NAME}" \
+  EO_LEGACY_SLUG="${LEGACY_PRODUCT_SLUG}" \
+  EO_LEGACY_MARK="${LEGACY_PRODUCT_MARK_NAME}" \
+  python3 - "${app}" <<'PY'
+import os
+import posixpath
+import re
+import sys
+from pathlib import Path
+
+app = Path(sys.argv[1])
+repo_root = Path(os.environ["EO_REPO_ROOT"]).resolve()
+source_webapps_root = repo_root / "web-apps" / "deploy" / "web-apps"
+source_webapps_marker = "DesktopEditors/web-apps/deploy/web-apps/"
+target_webapps_root = app / "Contents" / "Resources" / "editors" / "web-apps"
+resources_dir = app / "Contents" / "Resources"
+
+product = os.environ["EO_PRODUCT_NAME"]
+product_slug = os.environ["EO_PRODUCT_SLUG"]
+product_url = os.environ["EO_PRODUCT_URL"]
+bundle_id = os.environ["EO_PRODUCT_BUNDLE_ID"]
+legacy_dash = os.environ["EO_LEGACY_DASH"]
+legacy_space = os.environ["EO_LEGACY_SPACE"]
+legacy_joined = os.environ["EO_LEGACY_JOINED"]
+legacy_slug = os.environ["EO_LEGACY_SLUG"]
+legacy_mark = os.environ["EO_LEGACY_MARK"]
+
+repo_host_path = product_url.removeprefix("https://")
+product_mark = "autarqOfficeMark"
+source_root_pattern = re.compile(
+    r"(?:file://)?/[^\s'\"),]*"
+    + re.escape(source_webapps_marker)
+    + r"[^\s'\"),]+"
+)
+
+replacements = (
+    ("https://github.com/" + legacy_dash, product_url),
+    ("https://github.com/" + legacy_slug, product_url),
+    ("github.com/" + legacy_dash, repo_host_path),
+    ("github.com/" + legacy_slug, repo_host_path),
+    ("org." + legacy_slug + ".desktopeditors", bundle_id),
+    ("org." + legacy_slug, bundle_id),
+    (legacy_dash, product),
+    (legacy_space, product),
+    (legacy_joined, product.replace(" ", "")),
+    (legacy_joined.lower(), product_slug.replace("-", "")),
+    (legacy_slug, product_slug),
+    (legacy_mark, product_mark),
+)
+
+text_suffixes = {
+    ".css",
+    ".htm",
+    ".html",
+    ".js",
+    ".json",
+    ".map",
+    ".md",
+    ".plist",
+    ".svg",
+    ".txt",
+    ".xml",
+}
+
+
+def decode_text(raw):
+    for encoding in ("utf-8", "utf-16"):
+        try:
+            return raw.decode(encoding), encoding
+        except UnicodeDecodeError:
+            pass
+    return None, None
+
+
+def rewrite_source_path(match, file_path):
+    value = match.group(0)
+    local_value = value[7:] if value.startswith("file://") else value
+    try:
+        source_path = Path(local_value)
+        relative_to_source = source_path.relative_to(source_webapps_root)
+    except ValueError:
+        normalized = local_value.replace("\\", "/")
+        marker_index = normalized.find(source_webapps_marker)
+        if marker_index == -1:
+            return value
+        relative_to_source = Path(normalized[marker_index + len(source_webapps_marker):])
+
+    target_path = target_webapps_root / relative_to_source
+    relative_url = posixpath.relpath(
+        target_path.as_posix(),
+        file_path.parent.as_posix(),
+    )
+    return relative_url
+
+
+for file_path in resources_dir.rglob("*"):
+    if not file_path.is_file() or file_path.suffix.lower() not in text_suffixes:
+        continue
+
+    raw = file_path.read_bytes()
+    text, encoding = decode_text(raw)
+    if text is None:
+        continue
+
+    updated = source_root_pattern.sub(
+        lambda match: rewrite_source_path(match, file_path),
+        text,
+    )
+    for needle, replacement in replacements:
+        updated = updated.replace(needle, replacement)
+
+    if updated != text:
+        file_path.write_bytes(updated.encode(encoding))
+PY
+
+  if [[ -d "${legacy_theme_dir}" && "${legacy_theme_dir}" != "${product_theme_dir}" ]]; then
+    rm -rf "${product_theme_dir}"
+    mv "${legacy_theme_dir}" "${product_theme_dir}"
+  fi
+
+  if [[ -x "${brand_script}" ]]; then
+    "${brand_script}" "${resources_dir}" "${PRODUCT_NAME}"
+  fi
+}
+
 build_xcode_app() {
   mkdir -p "${OUT_DIR}" "${LOG_DIR}"
 
@@ -1043,6 +1209,7 @@ stage_product_app() {
 
   rm -rf "${app}"
   ditto "${BUILT_XCODE_APP}" "${app}"
+  sanitize_exported_app_resources "${app}"
 
   if [[ "${component}" != "suite" ]]; then
     old_exe="${app}/Contents/MacOS/${PRODUCT_NAME}"
@@ -1070,8 +1237,9 @@ stage_product_app() {
     fi
 
     patch_product_info_plist "${app}/Contents/Info.plist" "${app_name}" "${executable_name}" "${bundle_id}" "${url_scheme}" "${component}" "${icon_file}"
-    resign_app "${app}"
   fi
+
+  resign_app "${app}"
 
   STAGED_APPS+=("${app}")
   info "app exported to ${app}"
@@ -1093,11 +1261,11 @@ clean_macos_product_outputs() {
     "${OUT_DIR}/${PRODUCT_FAMILY_NAME} PDF.app" \
     "${OUT_DIR}/${PRODUCT_FAMILY_NAME} Visio.app" \
     "${OUT_DIR}/${PRODUCT_FAMILY_NAME} Draw.app" \
-    "${OUT_DIR}/Euro-Office Text.app" \
-    "${OUT_DIR}/Euro-Office Spreadsheet.app" \
-    "${OUT_DIR}/Euro-Office Presentation.app" \
-    "${OUT_DIR}/Euro-Office PDF.app" \
-    "${OUT_DIR}/Euro-Office Visio.app"
+    "${OUT_DIR}/${LEGACY_PRODUCT_FAMILY_NAME} Text.app" \
+    "${OUT_DIR}/${LEGACY_PRODUCT_FAMILY_NAME} Spreadsheet.app" \
+    "${OUT_DIR}/${LEGACY_PRODUCT_FAMILY_NAME} Presentation.app" \
+    "${OUT_DIR}/${LEGACY_PRODUCT_FAMILY_NAME} PDF.app" \
+    "${OUT_DIR}/${LEGACY_PRODUCT_FAMILY_NAME} Visio.app"
 }
 
 stage_macos_apps() {
