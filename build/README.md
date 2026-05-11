@@ -106,14 +106,13 @@ cd build
 MIN_FREE_GIB=120 ./macos/build.sh arm64
 ```
 
-The default macOS output is five standalone AUTARQ-branded apps:
+The default macOS output is four standalone AUTARQ-branded apps:
 
 ```text
 DesktopEditors/build/deploy/macos/arm64/AUTARQ Write.app
 DesktopEditors/build/deploy/macos/arm64/AUTARQ Sheets.app
 DesktopEditors/build/deploy/macos/arm64/AUTARQ Keynote.app
 DesktopEditors/build/deploy/macos/arm64/AUTARQ PDF.app
-DesktopEditors/build/deploy/macos/arm64/AUTARQ Draw.app
 ```
 
 The macOS build currently targets Apple Silicon first. Intel and universal
@@ -144,12 +143,20 @@ MIN_FREE_GIB=150                 # minimum free disk space check
 EO_SKIP_SPACE_CHECK=1            # bypass the free-space guard
 QT_DIR=/path/to/qt-root          # contains <version>/macos/bin/qmake or <version>/clang_64/bin/qmake
 DESKTOP_APPS_DIR=/path/to/desktop-apps
-EO_MACOS_PRODUCTS=split          # split, suite, all, or comma list: text,spreadsheet,presentation,pdf,visio
+EO_MACOS_PRODUCTS=split          # split, suite, all, or comma list: text,spreadsheet,presentation,pdf
+DRAWIO_PLUGIN_ARCHIVE=/path/to/drawio.plugin
 BUILD_TOOLS_REV=<commit>         # ONLYOFFICE/build_tools revision
 CODESIGNING_IDENTITY="Developer ID Application: ..."
 DEVELOPMENT_TEAM=<team-id>
 EO_SKIP_LAUNCH=1                 # skip the local launch smoke test
 ```
+
+The exporter installs the upstream ONLYOFFICE draw.io plugin into the staged
+Write, Sheets and Keynote bundles. The PDF app is skipped because the plugin's
+own `EditorsSupport` config targets word, cell and slide editors. By default
+the plugin archive is downloaded once into
+`build/deploy/macos/tools/drawio` and verified by SHA-256; set
+`DRAWIO_PLUGIN_ARCHIVE` to use a locally cached archive.
 
 If `QT_DIR` points at a root directory and Homebrew Qt is available, the script
 creates a build-tools compatible layout such as `<QT_DIR>/5.15.18/macos`.

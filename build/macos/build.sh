@@ -43,6 +43,7 @@ LOG_DIR="${BUILD_DIR}/deploy/macos/logs"
 DERIVED_DATA_DIR="${BUILD_DIR}/deploy/macos/DerivedData/arm64"
 TOOLS_BIN_DIR="${BUILD_DIR}/deploy/macos/tools/bin"
 CMAKE_VENV_DIR="${BUILD_DIR}/deploy/macos/tools/cmake-venv"
+DRAWIO_PLUGIN_CACHE_DIR="${DRAWIO_PLUGIN_CACHE_DIR:-${BUILD_DIR}/deploy/macos/tools/drawio}"
 BUILD_TOOLS_DIR="${REPO_ROOT}/build_tools"
 DESKTOP_APPS_DIR="${DESKTOP_APPS_DIR:-${REPO_ROOT}/desktop-apps}"
 XCODE_PROJECT="${DESKTOP_APPS_DIR}/macos/ONLYOFFICE.xcodeproj"
@@ -81,7 +82,8 @@ Environment:
   EO_SKIP_SPACE_CHECK=1
   QT_DIR=/path/to/qt-root
   BUILD_TOOLS_REV=${BUILD_TOOLS_REV}
-  EO_MACOS_PRODUCTS=split|suite|text,spreadsheet,presentation,pdf,visio
+  EO_MACOS_PRODUCTS=split|suite|text,spreadsheet,presentation,pdf
+  DRAWIO_PLUGIN_ARCHIVE=/path/to/drawio.plugin
   CODESIGNING_IDENTITY="Developer ID Application: ..."
   DEVELOPMENT_TEAM=<team-id>
   EO_SKIP_LAUNCH=1
@@ -317,6 +319,9 @@ preflight() {
   need_cmd security
   need_cmd ditto
   need_cmd file
+  need_cmd curl
+  need_cmd shasum
+  need_cmd unzip
   check_optional_cmd gh
 
   check_disk_space
@@ -788,42 +793,7 @@ build_native_payload() {
     fail "expected desktop payload was not produced: ${payload_dir}"
   fi
 
-  ensure_draw_empty_template "${payload_dir}"
-
   info "native payload ready: ${payload_dir}"
-}
-
-ensure_draw_empty_template() {
-  local payload_dir="$1"
-  local converter_dir="${payload_dir}/converter"
-  local template="${converter_dir}/empty/new.vsdx"
-  local x2t="${converter_dir}/x2t"
-  local tmp_dir
-
-  if [[ -f "${template}" ]]; then
-    return
-  fi
-
-  if [[ ! -x "${x2t}" ]]; then
-    fail "x2t converter missing; cannot generate Draw empty template: ${x2t}"
-  fi
-
-  mkdir -p "${converter_dir}/empty"
-  tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/autarq-vsdx.XXXXXX")"
-  printf 'VSDY;v10;0;' > "${tmp_dir}/empty.vsdt"
-
-  if ! "${x2t}" "${tmp_dir}/empty.vsdt" "${template}"; then
-    rm -rf "${tmp_dir}"
-    fail "failed to generate Draw empty template: ${template}"
-  fi
-
-  rm -rf "${tmp_dir}"
-
-  if [[ ! -f "${template}" ]]; then
-    fail "Draw empty template was not produced: ${template}"
-  fi
-
-  info "generated Draw empty template: ${template}"
 }
 
 codesign_identity() {
@@ -845,13 +815,13 @@ entitlements_file() {
 selected_products() {
   case "${MACOS_PRODUCTS}" in
     split)
-      printf '%s\n' text spreadsheet presentation pdf visio
+      printf '%s\n' text spreadsheet presentation pdf
       ;;
     suite)
       printf '%s\n' suite
       ;;
     all)
-      printf '%s\n' suite text spreadsheet presentation pdf visio
+      printf '%s\n' suite text spreadsheet presentation pdf
       ;;
     *)
       printf '%s\n' "${MACOS_PRODUCTS//,/ }" | xargs -n1
@@ -865,7 +835,6 @@ product_app_name() {
     spreadsheet) printf '%s Sheets\n' "${PRODUCT_FAMILY_NAME}" ;;
     presentation) printf '%s Keynote\n' "${PRODUCT_FAMILY_NAME}" ;;
     pdf) printf '%s PDF\n' "${PRODUCT_FAMILY_NAME}" ;;
-    visio) printf '%s Draw\n' "${PRODUCT_FAMILY_NAME}" ;;
     suite) printf '%s\n' "${PRODUCT_NAME}" ;;
     *) fail "unknown macOS product component: $1" ;;
   esac
@@ -877,7 +846,6 @@ product_executable_name() {
     spreadsheet) printf 'AUTARQSheets\n' ;;
     presentation) printf 'AUTARQKeynote\n' ;;
     pdf) printf 'AUTARQPDF\n' ;;
-    visio) printf 'AUTARQDraw\n' ;;
     suite) printf '%s\n' "${PRODUCT_NAME}" ;;
     *) fail "unknown macOS product component: $1" ;;
   esac
@@ -889,7 +857,6 @@ product_bundle_id() {
     spreadsheet) printf '%s.sheets\n' "${BUNDLE_ID}" ;;
     presentation) printf '%s.keynote\n' "${BUNDLE_ID}" ;;
     pdf) printf '%s.pdf\n' "${BUNDLE_ID}" ;;
-    visio) printf '%s.draw\n' "${BUNDLE_ID}" ;;
     suite) printf '%s\n' "${BUNDLE_ID}" ;;
     *) fail "unknown macOS product component: $1" ;;
   esac
@@ -901,7 +868,6 @@ product_url_scheme() {
     spreadsheet) printf 'autarq-sheets\n' ;;
     presentation) printf 'autarq-keynote\n' ;;
     pdf) printf 'autarq-pdf\n' ;;
-    visio) printf 'autarq-draw\n' ;;
     suite) printf 'autarq-office\n' ;;
     *) fail "unknown macOS product component: $1" ;;
   esac
@@ -913,7 +879,6 @@ product_icon_file() {
     spreadsheet) printf 'autarq-sheets\n' ;;
     presentation) printf 'autarq-keynote\n' ;;
     pdf) printf 'autarq-pdf\n' ;;
-    visio) printf 'autarq-draw\n' ;;
     suite) printf '' ;;
     *) fail "unknown macOS product component: $1" ;;
   esac
@@ -948,9 +913,6 @@ allowed_extensions = {
     },
     "pdf": {
         "pdf", "docxf", "oform",
-    },
-    "visio": {
-        "vsdx", "vssx", "vstx", "vsdm", "vssm", "vstm",
     },
 }
 
@@ -1147,6 +1109,29 @@ PY
   fi
 }
 
+install_drawio_plugin() {
+  local app="$1"
+  local plugins_dir="${app}/Contents/Resources/editors/sdkjs-plugins"
+  local installer="${DESKTOP_APPS_DIR}/macos/scripts/install-drawio-plugin.sh"
+
+  if [[ ! -d "${plugins_dir}" ]]; then
+    fail "sdkjs plugin directory missing under ${app}"
+  fi
+
+  if [[ ! -x "${installer}" ]]; then
+    fail "draw.io plugin installer missing or not executable: ${installer}"
+  fi
+
+  DRAWIO_PLUGIN_CACHE_DIR="${DRAWIO_PLUGIN_CACHE_DIR}" "${installer}" "${plugins_dir}"
+}
+
+component_supports_drawio_plugin() {
+  case "$1" in
+    text|spreadsheet|presentation|suite) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 build_xcode_app() {
   mkdir -p "${OUT_DIR}" "${LOG_DIR}"
 
@@ -1210,6 +1195,9 @@ stage_product_app() {
   rm -rf "${app}"
   ditto "${BUILT_XCODE_APP}" "${app}"
   sanitize_exported_app_resources "${app}"
+  if component_supports_drawio_plugin "${component}"; then
+    install_drawio_plugin "${app}"
+  fi
 
   if [[ "${component}" != "suite" ]]; then
     old_exe="${app}/Contents/MacOS/${PRODUCT_NAME}"

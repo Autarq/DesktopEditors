@@ -50,14 +50,13 @@ Desktop Editors contain the following components:
 ## Build AUTARQ Office macOS apps
 
 The AUTARQ macOS build is orchestrated from `DesktopEditors/build`, next to the
-existing Linux build entrypoint. On Apple Silicon it produces five standalone
+existing Linux build entrypoint. On Apple Silicon it produces four standalone
 apps:
 
 * `AUTARQ Write.app`
 * `AUTARQ Sheets.app`
 * `AUTARQ Keynote.app`
 * `AUTARQ PDF.app`
-* `AUTARQ Draw.app`
 
 ### Requirements
 
@@ -97,6 +96,9 @@ The apps are written to:
 ```text
 DesktopEditors/build/deploy/macos/arm64
 ```
+
+The macOS exporter also installs the pinned ONLYOFFICE draw.io plugin into the
+supported Write, Sheets and Keynote app bundles.
 
 For local `desktop-apps` development, keep a sibling checkout and point the
 build at it:
