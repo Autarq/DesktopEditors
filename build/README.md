@@ -17,6 +17,49 @@ If the repository was cloned without submodules, initialize them before building
 git submodule update --init --recursive
 ```
 
+## AUTARQ GitLab macOS Quick Start
+
+The AUTARQ macOS build branches are mirrored in the internal GitLab subgroup:
+
+```text
+https://repo.mwaysolutions.com/blockscape/autarq/office/desktop-apps
+```
+
+For Apple Silicon development, clone the macOS build branch directly and then
+initialize submodules from the branch-local `.gitmodules` file:
+
+```sh
+mkdir -p ~/Dev/autarq-office-desktop
+cd ~/Dev/autarq-office-desktop
+
+git clone \
+  --branch codex/macos-build-docs \
+  ssh://git@repo.mwaysolutions.com:2022/blockscape/autarq/office/desktop-apps/DesktopEditors.git
+
+cd DesktopEditors
+git submodule sync --recursive
+git submodule update --init --recursive
+
+cd build
+./macos/build.sh --check
+MIN_FREE_GIB=120 ./macos/build.sh arm64
+```
+
+The branch pins the AUTARQ macOS `desktop-apps` and `desktop-sdk` submodules to
+the internal GitLab repositories:
+
+```text
+ssh://git@repo.mwaysolutions.com:2022/blockscape/autarq/office/desktop-apps/desktop-apps.git
+ssh://git@repo.mwaysolutions.com:2022/blockscape/autarq/office/desktop-apps/desktop-sdk.git
+```
+
+Developers can still override the app checkout explicitly while testing local
+changes:
+
+```sh
+DESKTOP_APPS_DIR=~/Dev/autarq-office-desktop/desktop-apps ./macos/build.sh arm64
+```
+
 ## Linux
 
 Linux builds continue to use Docker Buildx Bake:

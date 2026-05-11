@@ -1,9 +1,9 @@
 [submodule "desktop-apps"]
 	path = desktop-apps
-	url = git@github.com:Euro-Office/desktop-apps.git
+	url = ssh://git@repo.mwaysolutions.com:2022/blockscape/autarq/office/desktop-apps/desktop-apps.git
 [submodule "desktop-sdk"]
 	path = desktop-sdk
-	url = git@github.com:Euro-Office/desktop-sdk.git
+	url = ssh://git@repo.mwaysolutions.com:2022/blockscape/autarq/office/desktop-apps/desktop-sdk.git
 [submodule "core"]
 	path = core
 	url = git@github.com:Euro-Office/core.git
