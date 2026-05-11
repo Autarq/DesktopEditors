@@ -87,6 +87,25 @@ cd DesktopEditors/build
 ./macos/build.sh arm64
 ```
 
+For a fresh Apple Silicon machine, use this full flow:
+
+```sh
+mkdir -p ~/Dev/autarq-office-desktop
+cd ~/Dev/autarq-office-desktop
+
+git clone \
+  --branch codex/macos-build-docs \
+  ssh://git@repo.mwaysolutions.com:2022/blockscape/autarq/office/desktop-apps/DesktopEditors.git
+
+cd DesktopEditors
+git submodule sync --recursive
+git submodule update --init --recursive
+
+cd build
+./macos/build.sh --check
+MIN_FREE_GIB=120 ./macos/build.sh arm64
+```
+
 The default macOS output is five standalone AUTARQ-branded apps:
 
 ```text
