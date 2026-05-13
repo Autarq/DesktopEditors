@@ -47,6 +47,11 @@ DRAWIO_PLUGIN_CACHE_DIR="${DRAWIO_PLUGIN_CACHE_DIR:-${BUILD_DIR}/deploy/macos/to
 BUILD_TOOLS_DIR="${REPO_ROOT}/build_tools"
 DESKTOP_APPS_DIR="${DESKTOP_APPS_DIR:-${REPO_ROOT}/desktop-apps}"
 XCODE_PROJECT="${DESKTOP_APPS_DIR}/macos/ONLYOFFICE.xcodeproj"
+AI_PLUGIN_ID="{9DC93CDB-B576-4F0C-B55E-FCC9C48DD777}"
+AUTARQ_AI_PROVIDER_NAME="${AUTARQ_AI_PROVIDER_NAME:-AUTARQ Office AI}"
+AUTARQ_AI_BASE_URL="${AUTARQ_AI_BASE_URL:-https://llm.autarq.now/v1/}"
+AUTARQ_AI_MODEL="${AUTARQ_AI_MODEL:-}"
+AUTARQ_AI_MODEL_NAME="${AUTARQ_AI_MODEL_NAME:-${AUTARQ_AI_MODEL}}"
 
 PREFLIGHT_FAILURES=0
 EXTERNAL_DESKTOP_APPS_LINK=""
@@ -84,6 +89,10 @@ Environment:
   BUILD_TOOLS_REV=${BUILD_TOOLS_REV}
   EO_MACOS_PRODUCTS=split|suite|text,spreadsheet,presentation,pdf
   DRAWIO_PLUGIN_ARCHIVE=/path/to/drawio.plugin
+  AUTARQ_AI_BASE_URL=${AUTARQ_AI_BASE_URL}
+  AUTARQ_AI_PROVIDER_NAME="${AUTARQ_AI_PROVIDER_NAME}"
+  AUTARQ_AI_API_KEY=<optional build-time key>
+  AUTARQ_AI_MODEL=<optional default model id>
   CODESIGNING_IDENTITY="Developer ID Application: ..."
   DEVELOPMENT_TEAM=<team-id>
   EO_SKIP_LAUNCH=1
@@ -937,7 +946,14 @@ info["CFBundleExecutable"] = executable_name
 info["CFBundleIdentifier"] = bundle_id
 info["EOProductComponent"] = component
 if icon_file:
-    info["CFBundleIconFile"] = icon_file
+    icon_filename = icon_file + ".icns"
+    info["CFBundleIconFile"] = icon_filename
+    info["CFBundleIconFiles"] = [icon_file, icon_filename]
+    info["CFBundleIcons"] = {
+        "CFBundlePrimaryIcon": {
+            "CFBundleIconFiles": [icon_file, icon_filename],
+        },
+    }
     info.pop("CFBundleIconName", None)
 info["CFBundleURLTypes"] = [{
     "CFBundleTypeRole": "Editor",
@@ -963,6 +979,17 @@ resign_app() {
   fi
 
   codesign "${codesign_args[@]}" "${app}"
+}
+
+register_launch_services_app() {
+  local app="$1"
+  local plist="${app}/Contents/Info.plist"
+
+  touch "${app}" "${app}/Contents" "${plist}"
+
+  if [[ -x "/System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister" ]]; then
+    "/System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister" -f -R -trusted "${app}" >/dev/null 2>&1 || true
+  fi
 }
 
 sanitize_exported_app_resources() {
@@ -1132,6 +1159,130 @@ component_supports_drawio_plugin() {
   esac
 }
 
+configure_autarq_ai_provider() {
+  local app="$1"
+  local plugin_dir="${app}/Contents/Resources/editors/sdkjs-plugins/${AI_PLUGIN_ID}"
+  local index_html="${plugin_dir}/index.html"
+  local defaults_js="${plugin_dir}/autarq-ai-defaults.js"
+
+  if [[ ! -d "${plugin_dir}" ]]; then
+    fail "AI agent plugin missing under ${app}"
+  fi
+  if [[ ! -f "${index_html}" ]]; then
+    fail "AI agent index.html missing under ${plugin_dir}"
+  fi
+
+  AUTARQ_AI_PROVIDER_NAME="${AUTARQ_AI_PROVIDER_NAME}" \
+  AUTARQ_AI_BASE_URL="${AUTARQ_AI_BASE_URL}" \
+  AUTARQ_AI_API_KEY="${AUTARQ_AI_API_KEY:-}" \
+  AUTARQ_AI_MODEL="${AUTARQ_AI_MODEL}" \
+  AUTARQ_AI_MODEL_NAME="${AUTARQ_AI_MODEL_NAME}" \
+  python3 - "${defaults_js}" "${index_html}" <<'PY'
+import json
+import os
+import sys
+from pathlib import Path
+
+defaults_js = Path(sys.argv[1])
+index_html = Path(sys.argv[2])
+
+provider = {
+    "type": "openaicompatible",
+    "name": os.environ["AUTARQ_AI_PROVIDER_NAME"],
+    "baseUrl": os.environ["AUTARQ_AI_BASE_URL"],
+}
+api_key = os.environ.get("AUTARQ_AI_API_KEY", "")
+if api_key:
+    provider["key"] = api_key
+
+model_id = os.environ.get("AUTARQ_AI_MODEL", "").strip()
+model = None
+if model_id:
+    model = {
+        "id": model_id,
+        "name": os.environ.get("AUTARQ_AI_MODEL_NAME", "").strip() or model_id,
+        "provider": "openaicompatible",
+    }
+
+payload = json.dumps({"provider": provider, "model": model}, ensure_ascii=True)
+defaults_js.write_text(
+    """(function () {
+  const config = __PAYLOAD__;
+  const provider = config.provider;
+  const model = config.model;
+  const providersKey = "providers";
+  const currentProviderKey = "current-provider";
+  const currentModelKey = "current-model";
+
+  function readJson(key, fallback) {
+    try {
+      const value = localStorage.getItem(key);
+      return value ? JSON.parse(value) : fallback;
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  function isAutarqProvider(item) {
+    return !!item && item.type === provider.type &&
+      (item.name === provider.name || item.baseUrl === provider.baseUrl);
+  }
+
+  let providers = readJson(providersKey, []);
+  providers = Array.isArray(providers) ? providers : [];
+
+  const existingIndex = providers.findIndex(isAutarqProvider);
+  if (existingIndex >= 0) {
+    providers[existingIndex] = Object.assign({}, providers[existingIndex], provider);
+  } else {
+    providers.unshift(provider);
+  }
+  localStorage.setItem(providersKey, JSON.stringify(providers));
+
+  const currentProvider = readJson(currentProviderKey, null);
+  if (!currentProvider || isAutarqProvider(currentProvider)) {
+    localStorage.setItem(currentProviderKey, JSON.stringify(provider));
+  }
+
+  const currentModel = readJson(currentModelKey, null);
+  if (model) {
+    if (!currentModel || currentModel.provider === provider.type) {
+      localStorage.setItem(currentModelKey, JSON.stringify(model));
+    }
+  } else if (currentModel && currentModel.provider && currentModel.provider !== provider.type) {
+    localStorage.removeItem(currentModelKey);
+  }
+})();\n""".replace("__PAYLOAD__", payload),
+    encoding="utf-8",
+)
+
+html = index_html.read_text(encoding="utf-8")
+script_tag = '    <script src="autarq-ai-defaults.js"></script>'
+module_tag = '    <script type="module" crossorigin src="index.js"></script>'
+if script_tag not in html:
+    if module_tag not in html:
+        raise SystemExit("Could not find AI agent index.js script tag")
+    html = html.replace(module_tag, f"{script_tag}\n{module_tag}", 1)
+    index_html.write_text(html, encoding="utf-8")
+PY
+
+  if [[ -n "${AUTARQ_AI_API_KEY:-}" ]]; then
+    warn "AUTARQ_AI_API_KEY was embedded into local app bundle ${app}; it is not written to tracked source files"
+  fi
+}
+
+verify_autarq_ai_provider() {
+  local app="$1"
+  local plugin_dir="${app}/Contents/Resources/editors/sdkjs-plugins/${AI_PLUGIN_ID}"
+  local defaults_js="${plugin_dir}/autarq-ai-defaults.js"
+  local index_html="${plugin_dir}/index.html"
+
+  [[ -f "${defaults_js}" ]] || fail "AUTARQ AI defaults missing: ${defaults_js}"
+  [[ -f "${index_html}" ]] || fail "AI agent index.html missing: ${index_html}"
+  grep -q 'autarq-ai-defaults.js' "${index_html}" || fail "AI defaults script is not loaded by ${index_html}"
+  grep -q "${AUTARQ_AI_BASE_URL}" "${defaults_js}" || fail "AUTARQ AI base URL missing from ${defaults_js}"
+}
+
 build_xcode_app() {
   mkdir -p "${OUT_DIR}" "${LOG_DIR}"
 
@@ -1198,6 +1349,7 @@ stage_product_app() {
   if component_supports_drawio_plugin "${component}"; then
     install_drawio_plugin "${app}"
   fi
+  configure_autarq_ai_provider "${app}"
 
   if [[ "${component}" != "suite" ]]; then
     old_exe="${app}/Contents/MacOS/${PRODUCT_NAME}"
@@ -1223,12 +1375,14 @@ stage_product_app() {
       fi
       cp "${icon_source}" "${app}/Contents/Resources/${icon_file}.icns"
       cp "${icon_source}" "${app}/Contents/Resources/AppIcon.icns"
+      touch "${app}/Contents/Resources/${icon_file}.icns" "${app}/Contents/Resources/AppIcon.icns"
     fi
 
     patch_product_info_plist "${app}/Contents/Info.plist" "${app_name}" "${executable_name}" "${bundle_id}" "${url_scheme}" "${component}" "${icon_file}"
   fi
 
   resign_app "${app}"
+  register_launch_services_app "${app}"
 
   STAGED_APPS+=("${app}")
   info "app exported to ${app}"
@@ -1275,7 +1429,7 @@ stage_macos_apps() {
 verify_app() {
   local app="$1"
   local plist="${app}/Contents/Info.plist"
-  local app_name executable_name bundle_id icon_file exe log_name
+  local app_name executable_name bundle_id icon_file icon_path exe log_name
 
   if [[ ! -d "${app}" ]]; then
     fail "app bundle missing: ${app}"
@@ -1285,17 +1439,22 @@ verify_app() {
   executable_name="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "${plist}")"
   bundle_id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "${plist}")"
   icon_file="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' "${plist}" 2>/dev/null || true)"
+  icon_path="${icon_file}"
+  if [[ -n "${icon_path}" && "${icon_path}" != *.icns ]]; then
+    icon_path="${icon_path}.icns"
+  fi
   exe="${app}/Contents/MacOS/${executable_name}"
   log_name="${app_name// /-}"
 
-  if [[ -n "${icon_file}" && ! -f "${app}/Contents/Resources/${icon_file}.icns" ]]; then
-    fail "app icon missing for ${app_name}: ${icon_file}.icns"
+  if [[ -n "${icon_path}" && ! -f "${app}/Contents/Resources/${icon_path}" ]]; then
+    fail "app icon missing for ${app_name}: ${icon_path}"
   fi
-  if [[ -n "${icon_file}" && -f "${app}/Contents/Resources/AppIcon.icns" ]]; then
-    if ! cmp -s "${app}/Contents/Resources/${icon_file}.icns" "${app}/Contents/Resources/AppIcon.icns"; then
-      fail "AppIcon.icns does not match ${icon_file}.icns for ${app_name}"
+  if [[ -n "${icon_path}" && -f "${app}/Contents/Resources/AppIcon.icns" ]]; then
+    if ! cmp -s "${app}/Contents/Resources/${icon_path}" "${app}/Contents/Resources/AppIcon.icns"; then
+      fail "AppIcon.icns does not match ${icon_path} for ${app_name}"
     fi
   fi
+  verify_autarq_ai_provider "${app}"
 
   if [[ ! -x "${exe}" ]]; then
     local candidate

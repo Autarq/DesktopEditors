@@ -145,6 +145,10 @@ QT_DIR=/path/to/qt-root          # contains <version>/macos/bin/qmake or <versio
 DESKTOP_APPS_DIR=/path/to/desktop-apps
 EO_MACOS_PRODUCTS=split          # split, suite, all, or comma list: text,spreadsheet,presentation,pdf
 DRAWIO_PLUGIN_ARCHIVE=/path/to/drawio.plugin
+AUTARQ_AI_BASE_URL=https://llm.autarq.now/v1/
+AUTARQ_AI_PROVIDER_NAME="AUTARQ Office AI"
+AUTARQ_AI_API_KEY=<optional local key>
+AUTARQ_AI_MODEL=<optional default model id>
 BUILD_TOOLS_REV=<commit>         # ONLYOFFICE/build_tools revision
 CODESIGNING_IDENTITY="Developer ID Application: ..."
 DEVELOPMENT_TEAM=<team-id>
@@ -157,6 +161,11 @@ own `EditorsSupport` config targets word, cell and slide editors. By default
 the plugin archive is downloaded once into
 `build/deploy/macos/tools/drawio` and verified by SHA-256; set
 `DRAWIO_PLUGIN_ARCHIVE` to use a locally cached archive.
+
+The exporter also preconfigures the bundled AI agent plugin with the AUTARQ
+OpenAI-compatible endpoint. Leave `AUTARQ_AI_API_KEY` unset for source builds;
+set it only for a local/private build where embedding the key into the resulting
+`.app` bundle is acceptable. The key is never written to tracked files.
 
 If `QT_DIR` points at a root directory and Homebrew Qt is available, the script
 creates a build-tools compatible layout such as `<QT_DIR>/5.15.18/macos`.

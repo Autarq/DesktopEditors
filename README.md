@@ -100,6 +100,10 @@ DesktopEditors/build/deploy/macos/arm64
 The macOS exporter also installs the pinned ONLYOFFICE draw.io plugin into the
 supported Write, Sheets and Keynote app bundles.
 
+It also preconfigures the bundled AI agent with the AUTARQ OpenAI-compatible
+endpoint. For private local builds, pass `AUTARQ_AI_API_KEY` to embed a key into
+the generated `.app`; leave it unset for commits and shared source builds.
+
 For local `desktop-apps` development, keep a sibling checkout and point the
 build at it:
 
