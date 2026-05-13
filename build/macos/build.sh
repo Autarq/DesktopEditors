@@ -1222,6 +1222,7 @@ stage_product_app() {
         fail "product icon missing: ${icon_source}"
       fi
       cp "${icon_source}" "${app}/Contents/Resources/${icon_file}.icns"
+      cp "${icon_source}" "${app}/Contents/Resources/AppIcon.icns"
     fi
 
     patch_product_info_plist "${app}/Contents/Info.plist" "${app_name}" "${executable_name}" "${bundle_id}" "${url_scheme}" "${component}" "${icon_file}"
@@ -1289,6 +1290,11 @@ verify_app() {
 
   if [[ -n "${icon_file}" && ! -f "${app}/Contents/Resources/${icon_file}.icns" ]]; then
     fail "app icon missing for ${app_name}: ${icon_file}.icns"
+  fi
+  if [[ -n "${icon_file}" && -f "${app}/Contents/Resources/AppIcon.icns" ]]; then
+    if ! cmp -s "${app}/Contents/Resources/${icon_file}.icns" "${app}/Contents/Resources/AppIcon.icns"; then
+      fail "AppIcon.icns does not match ${icon_file}.icns for ${app_name}"
+    fi
   fi
 
   if [[ ! -x "${exe}" ]]; then
