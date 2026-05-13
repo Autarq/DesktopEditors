@@ -1,6 +1,6 @@
-# AUTARQ Office Desktop Editors Builds
+# Euro-Office Desktop Editors Builds
 
-This directory contains the reproducible build entrypoints for AUTARQ Office
+This directory contains the reproducible build entrypoints for Euro-Office
 Desktop Editors.
 
 ## Clone
@@ -17,9 +17,9 @@ If the repository was cloned without submodules, initialize them before building
 git submodule update --init --recursive
 ```
 
-## AUTARQ GitLab macOS Quick Start
+## GitLab macOS Quick Start
 
-The AUTARQ macOS build branches are mirrored in the internal GitLab subgroup:
+The macOS build branches are mirrored in the internal GitLab subgroup:
 
 ```text
 https://repo.mwaysolutions.com/blockscape/autarq/office/desktop-apps
@@ -29,8 +29,8 @@ For Apple Silicon development, clone the macOS build branch directly and then
 initialize submodules from the branch-local `.gitmodules` file:
 
 ```sh
-mkdir -p ~/Dev/autarq-office-desktop
-cd ~/Dev/autarq-office-desktop
+mkdir -p ~/Dev/euro-office-desktop
+cd ~/Dev/euro-office-desktop
 
 git clone \
   --branch codex/macos-build-docs \
@@ -45,7 +45,7 @@ cd build
 MIN_FREE_GIB=120 ./macos/build.sh arm64
 ```
 
-The branch pins the AUTARQ macOS `desktop-apps` and `desktop-sdk` submodules to
+The branch pins the macOS `desktop-apps` and `desktop-sdk` submodules to
 the internal GitLab repositories:
 
 ```text
@@ -57,7 +57,7 @@ Developers can still override the app checkout explicitly while testing local
 changes:
 
 ```sh
-DESKTOP_APPS_DIR=~/Dev/autarq-office-desktop/desktop-apps ./macos/build.sh arm64
+DESKTOP_APPS_DIR=~/Dev/euro-office-desktop/desktop-apps ./macos/build.sh arm64
 ```
 
 ## Linux
@@ -90,8 +90,8 @@ cd DesktopEditors/build
 For a fresh Apple Silicon machine, use this full flow:
 
 ```sh
-mkdir -p ~/Dev/autarq-office-desktop
-cd ~/Dev/autarq-office-desktop
+mkdir -p ~/Dev/euro-office-desktop
+cd ~/Dev/euro-office-desktop
 
 git clone \
   --branch codex/macos-build-docs \
@@ -106,14 +106,16 @@ cd build
 MIN_FREE_GIB=120 ./macos/build.sh arm64
 ```
 
-The default macOS output is four standalone AUTARQ-branded apps:
+The default macOS output is one Euro-Office suite app:
 
 ```text
-DesktopEditors/build/deploy/macos/arm64/AUTARQ Write.app
-DesktopEditors/build/deploy/macos/arm64/AUTARQ Sheets.app
-DesktopEditors/build/deploy/macos/arm64/AUTARQ Keynote.app
-DesktopEditors/build/deploy/macos/arm64/AUTARQ PDF.app
+DesktopEditors/build/deploy/macos/arm64/Euro-Office.app
 ```
+
+The AUTARQ split-app variant lives on the dedicated
+`codex/macos-autarq-office-branding` branch. This Euro-Office build keeps the
+native desktop shape close to the upstream macOS app: one app handles text,
+spreadsheets, presentations, PDFs, and the other supported formats.
 
 The macOS build currently targets Apple Silicon first. Intel and universal
 builds can be added later using the same `build/macos` layout.
@@ -143,20 +145,12 @@ MIN_FREE_GIB=150                 # minimum free disk space check
 EO_SKIP_SPACE_CHECK=1            # bypass the free-space guard
 QT_DIR=/path/to/qt-root          # contains <version>/macos/bin/qmake or <version>/clang_64/bin/qmake
 DESKTOP_APPS_DIR=/path/to/desktop-apps
-EO_MACOS_PRODUCTS=split          # split, suite, all, or comma list: text,spreadsheet,presentation,pdf
-DRAWIO_PLUGIN_ARCHIVE=/path/to/drawio.plugin
+EO_MACOS_PRODUCTS=suite          # this branch exports one suite app
 BUILD_TOOLS_REV=<commit>         # ONLYOFFICE/build_tools revision
 CODESIGNING_IDENTITY="Developer ID Application: ..."
 DEVELOPMENT_TEAM=<team-id>
 EO_SKIP_LAUNCH=1                 # skip the local launch smoke test
 ```
-
-The exporter installs the upstream ONLYOFFICE draw.io plugin into the staged
-Write, Sheets and Keynote bundles. The PDF app is skipped because the plugin's
-own `EditorsSupport` config targets word, cell and slide editors. By default
-the plugin archive is downloaded once into
-`build/deploy/macos/tools/drawio` and verified by SHA-256; set
-`DRAWIO_PLUGIN_ARCHIVE` to use a locally cached archive.
 
 If `QT_DIR` points at a root directory and Homebrew Qt is available, the script
 creates a build-tools compatible layout such as `<QT_DIR>/5.15.18/macos`.

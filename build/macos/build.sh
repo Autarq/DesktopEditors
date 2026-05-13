@@ -5,11 +5,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 REPO_ROOT="$(cd "${BUILD_DIR}/.." && pwd)"
 
-PRODUCT_FAMILY_NAME="${PRODUCT_FAMILY_NAME:-AUTARQ}"
-PRODUCT_NAME="${PRODUCT_NAME:-${PRODUCT_FAMILY_NAME} Office}"
-PRODUCT_SLUG="${PRODUCT_SLUG:-autarq-office}"
-PRODUCT_REPO_URL="${PRODUCT_REPO_URL:-https://repo.mwaysolutions.com/blockscape/autarq/office/desktop-apps}"
-BUNDLE_ID="${PRODUCT_BUNDLE_IDENTIFIER:-com.autarq.office}"
+PRODUCT_FAMILY_NAME="${PRODUCT_FAMILY_NAME:-Euro-Office}"
+PRODUCT_NAME="${PRODUCT_NAME:-${PRODUCT_FAMILY_NAME}}"
+PRODUCT_SLUG="${PRODUCT_SLUG:-euro-office}"
+PRODUCT_REPO_URL="${PRODUCT_REPO_URL:-https://github.com/Euro-Office/desktop-apps}"
+BUNDLE_ID="${PRODUCT_BUNDLE_IDENTIFIER:-org.euro-office.desktopeditors}"
+PRODUCT_MARK_NAME="${PRODUCT_MARK_NAME:-euroOfficeMark}"
 LEGACY_PRODUCT_FAMILY_NAME="${LEGACY_PRODUCT_FAMILY_NAME:-}"
 if [[ -z "${LEGACY_PRODUCT_FAMILY_NAME}" ]]; then
   LEGACY_PRODUCT_FAMILY_NAME="Euro""-Office"
@@ -30,7 +31,7 @@ LEGACY_PRODUCT_MARK_NAME="${LEGACY_PRODUCT_MARK_NAME:-}"
 if [[ -z "${LEGACY_PRODUCT_MARK_NAME}" ]]; then
   LEGACY_PRODUCT_MARK_NAME="euro""OfficeMark"
 fi
-MACOS_PRODUCTS="${EO_MACOS_PRODUCTS:-split}"
+MACOS_PRODUCTS="${EO_MACOS_PRODUCTS:-suite}"
 SCHEME="${SCHEME:-ONLYOFFICE-arm}"
 ARCH="${1:-}"
 BUILD_TOOLS_REV="${BUILD_TOOLS_REV:-c5f6c2e02b50dfcc5c53a207f9a6cde84896de91}"
@@ -43,7 +44,6 @@ LOG_DIR="${BUILD_DIR}/deploy/macos/logs"
 DERIVED_DATA_DIR="${BUILD_DIR}/deploy/macos/DerivedData/arm64"
 TOOLS_BIN_DIR="${BUILD_DIR}/deploy/macos/tools/bin"
 CMAKE_VENV_DIR="${BUILD_DIR}/deploy/macos/tools/cmake-venv"
-DRAWIO_PLUGIN_CACHE_DIR="${DRAWIO_PLUGIN_CACHE_DIR:-${BUILD_DIR}/deploy/macos/tools/drawio}"
 BUILD_TOOLS_DIR="${REPO_ROOT}/build_tools"
 DESKTOP_APPS_DIR="${DESKTOP_APPS_DIR:-${REPO_ROOT}/desktop-apps}"
 XCODE_PROJECT="${DESKTOP_APPS_DIR}/macos/ONLYOFFICE.xcodeproj"
@@ -82,8 +82,7 @@ Environment:
   EO_SKIP_SPACE_CHECK=1
   QT_DIR=/path/to/qt-root
   BUILD_TOOLS_REV=${BUILD_TOOLS_REV}
-  EO_MACOS_PRODUCTS=split|suite|text,spreadsheet,presentation,pdf
-  DRAWIO_PLUGIN_ARCHIVE=/path/to/drawio.plugin
+  EO_MACOS_PRODUCTS=suite
   CODESIGNING_IDENTITY="Developer ID Application: ..."
   DEVELOPMENT_TEAM=<team-id>
   EO_SKIP_LAUNCH=1
@@ -319,9 +318,6 @@ preflight() {
   need_cmd security
   need_cmd ditto
   need_cmd file
-  need_cmd curl
-  need_cmd shasum
-  need_cmd unzip
   check_optional_cmd gh
 
   check_disk_space
@@ -814,17 +810,11 @@ entitlements_file() {
 
 selected_products() {
   case "${MACOS_PRODUCTS}" in
-    split)
-      printf '%s\n' text spreadsheet presentation pdf
-      ;;
     suite)
       printf '%s\n' suite
       ;;
-    all)
-      printf '%s\n' suite text spreadsheet presentation pdf
-      ;;
     *)
-      printf '%s\n' "${MACOS_PRODUCTS//,/ }" | xargs -n1
+      fail "this Euro-Office branch exports only the suite app; use codex/macos-autarq-office-branding for split app builds"
       ;;
   esac
 }
@@ -987,6 +977,7 @@ sanitize_exported_app_resources() {
   EO_LEGACY_JOINED="${LEGACY_PRODUCT_JOINED_NAME}" \
   EO_LEGACY_SLUG="${LEGACY_PRODUCT_SLUG}" \
   EO_LEGACY_MARK="${LEGACY_PRODUCT_MARK_NAME}" \
+  EO_PRODUCT_MARK="${PRODUCT_MARK_NAME}" \
   python3 - "${app}" <<'PY'
 import os
 import posixpath
@@ -1010,9 +1001,9 @@ legacy_space = os.environ["EO_LEGACY_SPACE"]
 legacy_joined = os.environ["EO_LEGACY_JOINED"]
 legacy_slug = os.environ["EO_LEGACY_SLUG"]
 legacy_mark = os.environ["EO_LEGACY_MARK"]
+product_mark = os.environ["EO_PRODUCT_MARK"]
 
 repo_host_path = product_url.removeprefix("https://")
-product_mark = "autarqOfficeMark"
 source_root_pattern = re.compile(
     r"(?:file://)?/[^\s'\"),]*"
     + re.escape(source_webapps_marker)
@@ -1109,29 +1100,6 @@ PY
   fi
 }
 
-install_drawio_plugin() {
-  local app="$1"
-  local plugins_dir="${app}/Contents/Resources/editors/sdkjs-plugins"
-  local installer="${DESKTOP_APPS_DIR}/macos/scripts/install-drawio-plugin.sh"
-
-  if [[ ! -d "${plugins_dir}" ]]; then
-    fail "sdkjs plugin directory missing under ${app}"
-  fi
-
-  if [[ ! -x "${installer}" ]]; then
-    fail "draw.io plugin installer missing or not executable: ${installer}"
-  fi
-
-  DRAWIO_PLUGIN_CACHE_DIR="${DRAWIO_PLUGIN_CACHE_DIR}" "${installer}" "${plugins_dir}"
-}
-
-component_supports_drawio_plugin() {
-  case "$1" in
-    text|spreadsheet|presentation|suite) return 0 ;;
-    *) return 1 ;;
-  esac
-}
-
 build_xcode_app() {
   mkdir -p "${OUT_DIR}" "${LOG_DIR}"
 
@@ -1195,9 +1163,6 @@ stage_product_app() {
   rm -rf "${app}"
   ditto "${BUILT_XCODE_APP}" "${app}"
   sanitize_exported_app_resources "${app}"
-  if component_supports_drawio_plugin "${component}"; then
-    install_drawio_plugin "${app}"
-  fi
 
   if [[ "${component}" != "suite" ]]; then
     old_exe="${app}/Contents/MacOS/${PRODUCT_NAME}"
