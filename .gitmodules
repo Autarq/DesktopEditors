@@ -15,7 +15,7 @@
 	url = git@github.com:Euro-Office/dictionaries.git
 [submodule "web-apps"]
 	path = web-apps
-	url = git@github.com:Euro-Office/web-apps.git
+	url = ssh://git@repo.mwaysolutions.com:2022/blockscape/autarq/office/desktop-apps/web-apps.git
 [submodule "document-templates"]
 	path = document-templates
 	url = git@github.com:Euro-Office/document-templates.git
