@@ -30,7 +30,7 @@ LEGACY_PRODUCT_MARK_NAME="${LEGACY_PRODUCT_MARK_NAME:-}"
 if [[ -z "${LEGACY_PRODUCT_MARK_NAME}" ]]; then
   LEGACY_PRODUCT_MARK_NAME="euro""OfficeMark"
 fi
-MACOS_PRODUCTS="${EO_MACOS_PRODUCTS:-split}"
+MACOS_PRODUCTS="${EO_MACOS_PRODUCTS:-suite}"
 SCHEME="${SCHEME:-ONLYOFFICE-arm}"
 ARCH="${1:-}"
 BUILD_TOOLS_REV="${BUILD_TOOLS_REV:-c5f6c2e02b50dfcc5c53a207f9a6cde84896de91}"
@@ -87,7 +87,7 @@ Environment:
   EO_SKIP_SPACE_CHECK=1
   QT_DIR=/path/to/qt-root
   BUILD_TOOLS_REV=${BUILD_TOOLS_REV}
-  EO_MACOS_PRODUCTS=split|suite|text,spreadsheet,presentation,pdf
+  EO_MACOS_PRODUCTS=suite|split|text,spreadsheet,presentation,pdf
   DRAWIO_PLUGIN_ARCHIVE=/path/to/drawio.plugin
   AUTARQ_AI_BASE_URL=${AUTARQ_AI_BASE_URL}
   AUTARQ_AI_PROVIDER_NAME="${AUTARQ_AI_PROVIDER_NAME}"

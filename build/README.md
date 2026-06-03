@@ -33,7 +33,7 @@ mkdir -p ~/Dev/autarq-office-desktop
 cd ~/Dev/autarq-office-desktop
 
 git clone \
-  --branch codex/macos-build-docs \
+  --branch codex/macos-autarq-office-branding \
   ssh://git@repo.mwaysolutions.com:2022/blockscape/autarq/office/desktop-apps/DesktopEditors.git
 
 cd DesktopEditors
@@ -94,7 +94,7 @@ mkdir -p ~/Dev/autarq-office-desktop
 cd ~/Dev/autarq-office-desktop
 
 git clone \
-  --branch codex/macos-build-docs \
+  --branch codex/macos-autarq-office-branding \
   ssh://git@repo.mwaysolutions.com:2022/blockscape/autarq/office/desktop-apps/DesktopEditors.git
 
 cd DesktopEditors
@@ -106,13 +106,10 @@ cd build
 MIN_FREE_GIB=120 ./macos/build.sh arm64
 ```
 
-The default macOS output is four standalone AUTARQ-branded apps:
+The default macOS output is one AUTARQ-branded suite app:
 
 ```text
-DesktopEditors/build/deploy/macos/arm64/AUTARQ Write.app
-DesktopEditors/build/deploy/macos/arm64/AUTARQ Sheets.app
-DesktopEditors/build/deploy/macos/arm64/AUTARQ Keynote.app
-DesktopEditors/build/deploy/macos/arm64/AUTARQ PDF.app
+DesktopEditors/build/deploy/macos/arm64/AUTARQ Office.app
 ```
 
 The macOS build currently targets Apple Silicon first. Intel and universal
@@ -143,7 +140,7 @@ MIN_FREE_GIB=150                 # minimum free disk space check
 EO_SKIP_SPACE_CHECK=1            # bypass the free-space guard
 QT_DIR=/path/to/qt-root          # contains <version>/macos/bin/qmake or <version>/clang_64/bin/qmake
 DESKTOP_APPS_DIR=/path/to/desktop-apps
-EO_MACOS_PRODUCTS=split          # split, suite, all, or comma list: text,spreadsheet,presentation,pdf
+EO_MACOS_PRODUCTS=suite          # default suite app; split/all/comma list are developer overrides
 DRAWIO_PLUGIN_ARCHIVE=/path/to/drawio.plugin
 AUTARQ_AI_BASE_URL=https://llm.autarq.now/v1/
 AUTARQ_AI_PROVIDER_NAME="AUTARQ Office AI"
@@ -156,9 +153,7 @@ EO_SKIP_LAUNCH=1                 # skip the local launch smoke test
 ```
 
 The exporter installs the upstream ONLYOFFICE draw.io plugin into the staged
-Write, Sheets and Keynote bundles. The PDF app is skipped because the plugin's
-own `EditorsSupport` config targets word, cell and slide editors. By default
-the plugin archive is downloaded once into
+suite bundle. By default the plugin archive is downloaded once into
 `build/deploy/macos/tools/drawio` and verified by SHA-256; set
 `DRAWIO_PLUGIN_ARCHIVE` to use a locally cached archive.
 

@@ -3,7 +3,7 @@
 
 ## Welcome to the AUTARQ Office Desktop Editors repo!
 
-[AUTARQ Office Desktop Editors](https://repo.mwaysolutions.com/blockscape/autarq/office/desktop-apps/DesktopEditors) is a free office suite that combines text, spreadsheet, presentation, PDF, and diagram editing apps. The application allows creating, viewing and editing documents stored on your Windows/Linux PC or Mac without an Internet connection. It is fully compatible with Office Open XML formats: .docx, .xlsx, .pptx.
+[AUTARQ Office Desktop Editors](https://repo.mwaysolutions.com/blockscape/autarq/office/desktop-apps/DesktopEditors) is a free office suite that combines text, spreadsheet, presentation, PDF, and diagram editing in one desktop app. The application allows creating, viewing and editing documents stored on your Windows/Linux PC or Mac without an Internet connection. It is fully compatible with Office Open XML formats: .docx, .xlsx, .pptx.
 
 ## Features you'll love ✨
 
@@ -50,13 +50,9 @@ Desktop Editors contain the following components:
 ## Build AUTARQ Office macOS apps
 
 The AUTARQ macOS build is orchestrated from `DesktopEditors/build`, next to the
-existing Linux build entrypoint. On Apple Silicon it produces four standalone
-apps:
+existing Linux build entrypoint. On Apple Silicon it produces one suite app:
 
-* `AUTARQ Write.app`
-* `AUTARQ Sheets.app`
-* `AUTARQ Keynote.app`
-* `AUTARQ PDF.app`
+* `AUTARQ Office.app`
 
 ### Requirements
 
@@ -75,7 +71,7 @@ mkdir -p ~/Dev/autarq-office-desktop
 cd ~/Dev/autarq-office-desktop
 
 git clone \
-  --branch codex/macos-build-docs \
+  --branch codex/macos-autarq-office-branding \
   ssh://git@repo.mwaysolutions.com:2022/blockscape/autarq/office/desktop-apps/DesktopEditors.git
 
 cd DesktopEditors
@@ -94,11 +90,11 @@ MIN_FREE_GIB=120 ./macos/build.sh arm64
 The apps are written to:
 
 ```text
-DesktopEditors/build/deploy/macos/arm64
+DesktopEditors/build/deploy/macos/arm64/AUTARQ Office.app
 ```
 
 The macOS exporter also installs the pinned ONLYOFFICE draw.io plugin into the
-supported Write, Sheets and Keynote app bundles.
+suite bundle.
 
 It also preconfigures the bundled AI agent with the AUTARQ OpenAI-compatible
 endpoint. For private local builds, pass `AUTARQ_AI_API_KEY` to embed a key into
