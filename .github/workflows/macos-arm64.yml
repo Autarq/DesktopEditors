@@ -1,0 +1,72 @@
+name: macOS ARM64
+
+on:
+  workflow_dispatch:
+    inputs:
+      full_build:
+        description: Run the full macOS app build
+        type: boolean
+        default: true
+  push:
+    branches:
+      - autarq-office
+    paths:
+      - ".github/workflows/macos-arm64.yml"
+      - "build/macos/**"
+      - "build/README.md"
+      - ".gitmodules"
+  pull_request:
+    paths:
+      - ".github/workflows/macos-arm64.yml"
+      - "build/macos/**"
+      - "build/README.md"
+      - ".gitmodules"
+
+jobs:
+  preflight:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Install host tools
+        run: |
+          brew update
+          brew install qt@5 cmake ninja jq imagemagick || true
+      - name: macOS preflight
+        working-directory: build
+        run: ./macos/build.sh --check
+
+  build:
+    needs: preflight
+    if: github.event_name == 'workflow_dispatch' && inputs.full_build
+    runs-on: macos-15
+    timeout-minutes: 360
+    env:
+      EO_SKIP_LAUNCH: "1"
+      MIN_FREE_GIB: "80"
+      EO_MACOS_PRODUCTS: suite
+      AUTARQ_AI_API_KEY: ${{ secrets.AUTARQ_AI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Install host tools
+        run: |
+          brew update
+          brew install qt@5 cmake ninja jq imagemagick || true
+      - name: Build AUTARQ Office.app
+        working-directory: build
+        run: ./macos/build.sh arm64
+      - name: Verify bundle
+        run: |
+          test -d "build/deploy/macos/arm64/AUTARQ Office.app"
+          codesign --verify --deep --strict --verbose=4 "build/deploy/macos/arm64/AUTARQ Office.app"
+          file "build/deploy/macos/arm64/AUTARQ Office.app/Contents/MacOS/"*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AUTARQ-Office-macOS-arm64
+          path: build/deploy/macos/arm64/AUTARQ Office.app
+          if-no-files-found: error

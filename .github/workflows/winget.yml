@@ -9,7 +9,6 @@ jobs:
       - name: Publish to WinGet
         uses: vedantmgoyal9/winget-releaser@main
         with:
-          identifier: ONLYOFFICE.DesktopEditors
+          identifier: AUTARQ.Office
           installers-regex: '(x86|x64|arm64)\.exe$'
           token: ${{ secrets.WINGET_TOKEN }}
-

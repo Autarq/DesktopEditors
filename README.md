@@ -3,7 +3,7 @@
 
 ## Welcome to the AUTARQ Office Desktop Editors repo!
 
-[AUTARQ Office Desktop Editors](https://repo.mwaysolutions.com/blockscape/autarq/office/desktop-apps/DesktopEditors) is a free office suite that combines text, spreadsheet, presentation, PDF, and diagram editing in one desktop app. The application allows creating, viewing and editing documents stored on your Windows/Linux PC or Mac without an Internet connection. It is fully compatible with Office Open XML formats: .docx, .xlsx, .pptx.
+[AUTARQ Office Desktop Editors](https://github.com/Autarq/DesktopEditors) is a free office suite that combines text, spreadsheet, presentation, PDF, and diagram editing in one desktop app. The application allows creating, viewing and editing documents stored on your Windows/Linux PC or Mac without an Internet connection. It is fully compatible with Office Open XML formats: .docx, .xlsx, .pptx.
 
 ## Features you'll love ✨
 
@@ -64,15 +64,15 @@ existing Linux build entrypoint. On Apple Silicon it produces one suite app:
 
 ### Build steps
 
-Clone the AUTARQ GitLab branch with submodules:
+Clone the AUTARQ GitHub fork with submodules:
 
 ```sh
 mkdir -p ~/Dev/autarq-office-desktop
 cd ~/Dev/autarq-office-desktop
 
 git clone \
-  --branch codex/macos-autarq-office-branding \
-  ssh://git@repo.mwaysolutions.com:2022/blockscape/autarq/office/desktop-apps/DesktopEditors.git
+  --branch autarq-office \
+  https://github.com/Autarq/DesktopEditors.git
 
 cd DesktopEditors
 git submodule sync --recursive
@@ -116,6 +116,9 @@ More details and troubleshooting notes live in [`build/README.md`](build/README.
 
 ## License 📄
 
-Desktop Editors is licensed under the GNU Affero Public License, version 3.0, ensuring its transparency and commitment to the open-source community.
+Desktop Editors is licensed under the GNU Affero Public License, version 3.0,
+with upstream legal notices retained. AUTARQ Office is a public fork of
+Euro-Office/ONLYOFFICE Desktop Editors; see [`NOTICE-AUTARQ.md`](NOTICE-AUTARQ.md)
+and the license files in each submodule before redistributing binaries.
 
-  [1]: https://repo.mwaysolutions.com/blockscape/autarq/office/DocumentServer
+  [1]: https://github.com/Autarq/DocumentServer

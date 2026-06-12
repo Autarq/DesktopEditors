@@ -1,0 +1,43 @@
+name: Linux Packages
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - autarq-office
+    paths:
+      - ".github/workflows/linux-packages.yml"
+      - "build/**"
+      - ".gitmodules"
+  pull_request:
+    paths:
+      - ".github/workflows/linux-packages.yml"
+      - "build/**"
+      - ".gitmodules"
+
+jobs:
+  deb-rpm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - uses: docker/setup-buildx-action@v3
+      - name: Install packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ruby ruby-dev rpm
+          sudo gem install --no-document fpm
+      - name: Build Linux desktop export
+        working-directory: build
+        run: docker buildx bake
+      - name: Build deb and rpm packages
+        working-directory: build
+        run: ./linux/package.sh all
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AUTARQ-Office-linux-packages
+          path: build/deploy/linux/packages/*
+          if-no-files-found: error

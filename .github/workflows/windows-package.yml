@@ -1,0 +1,72 @@
+name: Windows Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      arch:
+        description: Windows architecture
+        type: choice
+        options:
+          - x64
+          - arm64
+          - x86
+        default: x64
+      installer:
+        description: Build Inno Setup installer when available
+        type: boolean
+        default: false
+  push:
+    branches:
+      - autarq-office
+    paths:
+      - ".github/workflows/windows-package.yml"
+      - "build/windows/**"
+      - "desktop-apps/package/**"
+      - ".gitmodules"
+  pull_request:
+    paths:
+      - ".github/workflows/windows-package.yml"
+      - "build/windows/**"
+      - "desktop-apps/package/**"
+      - ".gitmodules"
+
+jobs:
+  validate:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Validate Windows packaging wrapper
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile("build/windows/package.ps1", [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | Format-List | Out-String | Write-Error
+          }
+
+  package:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: windows-2022
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Package existing Windows build output
+        shell: pwsh
+        run: |
+          $installer = [System.Convert]::ToBoolean("${{ inputs.installer }}")
+          ./build/windows/package.ps1 -Arch "${{ inputs.arch }}" -Installer:$installer
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AUTARQ-Office-windows-${{ inputs.arch }}
+          path: |
+            desktop-apps/package/zip/*.zip
+            desktop-apps/package/inno/*.exe
+          if-no-files-found: error

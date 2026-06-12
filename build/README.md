@@ -8,7 +8,7 @@ Desktop Editors.
 Clone the repository with submodules:
 
 ```sh
-git clone --recurse-submodules ssh://git@repo.mwaysolutions.com:2022/blockscape/autarq/office/desktop-apps/DesktopEditors.git
+git clone --branch autarq-office --recurse-submodules https://github.com/Autarq/DesktopEditors.git
 ```
 
 If the repository was cloned without submodules, initialize them before building:
@@ -17,15 +17,15 @@ If the repository was cloned without submodules, initialize them before building
 git submodule update --init --recursive
 ```
 
-## AUTARQ GitLab macOS Quick Start
+## AUTARQ GitHub Quick Start
 
-The AUTARQ macOS build branches are mirrored in the internal GitLab subgroup:
+The AUTARQ desktop repositories are public forks in the GitHub organization:
 
 ```text
-https://repo.mwaysolutions.com/blockscape/autarq/office/desktop-apps
+https://github.com/Autarq
 ```
 
-For Apple Silicon development, clone the macOS build branch directly and then
+For Apple Silicon development, clone the AUTARQ Office branch directly and then
 initialize submodules from the branch-local `.gitmodules` file:
 
 ```sh
@@ -33,8 +33,8 @@ mkdir -p ~/Dev/autarq-office-desktop
 cd ~/Dev/autarq-office-desktop
 
 git clone \
-  --branch codex/macos-autarq-office-branding \
-  ssh://git@repo.mwaysolutions.com:2022/blockscape/autarq/office/desktop-apps/DesktopEditors.git
+  --branch autarq-office \
+  https://github.com/Autarq/DesktopEditors.git
 
 cd DesktopEditors
 git submodule sync --recursive
@@ -45,12 +45,15 @@ cd build
 MIN_FREE_GIB=120 ./macos/build.sh arm64
 ```
 
-The branch pins the AUTARQ macOS `desktop-apps` and `desktop-sdk` submodules to
-the internal GitLab repositories:
+The branch pins all desktop build submodules to matching public `Autarq/*`
+forks:
 
 ```text
-ssh://git@repo.mwaysolutions.com:2022/blockscape/autarq/office/desktop-apps/desktop-apps.git
-ssh://git@repo.mwaysolutions.com:2022/blockscape/autarq/office/desktop-apps/desktop-sdk.git
+https://github.com/Autarq/desktop-apps.git
+https://github.com/Autarq/desktop-sdk.git
+https://github.com/Autarq/core.git
+https://github.com/Autarq/sdkjs.git
+https://github.com/Autarq/web-apps.git
 ```
 
 Developers can still override the app checkout explicitly while testing local
@@ -75,6 +78,19 @@ The exported desktop build is written to:
 DesktopEditors/build/deploy/desktop
 ```
 
+To create Linux packages from that export, install `fpm` and run:
+
+```sh
+cd DesktopEditors/build
+./linux/package.sh all
+```
+
+The package output is written to:
+
+```text
+DesktopEditors/build/deploy/linux/packages
+```
+
 ## macOS
 
 macOS builds must run on a macOS host with Xcode installed. Xcode application
@@ -94,8 +110,8 @@ mkdir -p ~/Dev/autarq-office-desktop
 cd ~/Dev/autarq-office-desktop
 
 git clone \
-  --branch codex/macos-autarq-office-branding \
-  ssh://git@repo.mwaysolutions.com:2022/blockscape/autarq/office/desktop-apps/DesktopEditors.git
+  --branch autarq-office \
+  https://github.com/Autarq/DesktopEditors.git
 
 cd DesktopEditors
 git submodule sync --recursive
@@ -114,6 +130,37 @@ DesktopEditors/build/deploy/macos/arm64/AUTARQ Office.app
 
 The macOS build currently targets Apple Silicon first. Intel and universal
 builds can be added later using the same `build/macos` layout.
+
+## Windows
+
+Windows packaging uses the upstream PowerShell scripts under
+`desktop-apps/package`. The wrapper in this repository expects the native
+Windows payload to already exist under `build_tools/out` and then creates a ZIP
+package, with optional Inno Setup installer output:
+
+```powershell
+cd DesktopEditors
+.\build\windows\package.ps1 -Arch x64
+```
+
+Expected native payload path for x64:
+
+```text
+DesktopEditors\build_tools\out\win_64\AUTARQ\DesktopEditors
+```
+
+The wrapper intentionally fails if that payload is missing. That keeps CI and
+release runs explicit about the boundary between compiling the Windows desktop
+payload and packaging it.
+
+## GitHub Actions
+
+The AUTARQ fork includes three build workflows:
+
+- `macOS ARM64`: preflight on PR/push and a manual full Apple Silicon app build.
+- `Linux Packages`: Docker Buildx Bake plus `.deb` and `.rpm` packaging.
+- `Windows Package`: validates the packaging wrapper on PR/push and packages a
+  prebuilt Windows payload on manual dispatch.
 
 ### macOS Requirements
 
