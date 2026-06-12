@@ -1,10 +1,18 @@
 diff --git a/scripts/core_common/modules/boost.py b/scripts/core_common/modules/boost.py
-index 9458064..4b8723f 100644
+index af003e7..e6b9d99 100644
 --- a/scripts/core_common/modules/boost.py
 +++ b/scripts/core_common/modules/boost.py
-@@ -77,14 +77,12 @@ def make():
-     # add "define=_ITERATOR_DEBUG_LEVEL=0" to b2 args before install for disable _ITERATOR_DEBUG_LEVEL
-     if (-1 != config.option("platform").find("win_64")) and not base.is_file("../build/win_64/lib/libboost_system-" + win_vs_version + "-mt-x64-1_72.lib"):
+@@ -65,2 +65,3 @@ def make():
+   os.chdir("boost_1_72_0")
++  base.replaceInFile("./tools/build/src/tools/msvc.jam", "limit = \"-version \\\"[16.0,17.0)\\\"\" ;", "limit = \"-version \\\"[16.0,18.0)\\\"\" ;")
+
+@@ -75,2 +76,5 @@ def make():
+       win_vs_version = "vc142"
++    win_toolset = os.environ.get("EO_WINDOWS_BOOST_TOOLSET", win_toolset)
++    win_boot_arg = os.environ.get("EO_WINDOWS_BOOST_BOOTSTRAP", win_boot_arg)
++    win_vs_version = os.environ.get("EO_WINDOWS_BOOST_LIB_TAG", win_vs_version)
+
+@@ -79,10 +83,8 @@ def make():
        base.cmd("bootstrap.bat", [win_boot_arg])
 -      base.cmd("b2.exe", ["headers"])
 -      base.cmd("b2.exe", ["--clean"])
@@ -19,5 +27,3 @@ index 9458064..4b8723f 100644
 +      base.cmd2("b2.exe", ["headers"])
 +      base.cmd2("b2.exe", ["--prefix=./../build/win_32", "--stagedir=./../build/win_32/stage", "--build-dir=./../build/win_32/build-temp", "--layout=tagged", "variant=release", "architecture=x86", "address-model=32", "binary-format=pe", "abi=ms", "link=static", "--with-filesystem", "--with-system", "--with-date_time", "--with-regex", "--toolset=" + win_toolset, "install"])
      if (-1 != config.option("platform").find("win_arm64") and not base.is_file("../build/win_arm64/lib/libboost_system-" + win_vs_version + "-mt-a64-1_72.lib")):
-       boost_bat = []
-       boost_bat.append("call bootstrap.bat " + win_boot_arg) # first build b2 for win64, so vcvarsall_call with arm64 later
