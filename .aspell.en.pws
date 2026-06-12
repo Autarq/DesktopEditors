@@ -1,6 +1,7 @@
-personal_ws-1.1 en 218 utf-8
+personal_ws-1.1 en 237 utf-8
 ACOT
 ACOTH
+ASLR
 ASC
 aspose
 aspx
@@ -36,7 +37,10 @@ CHISQ
 CJK
 ClipArt
 CNumberingLvlLegacy
+cbBufInCtlStm
+cce
 coedit
+colLast
 COMBINA
 compatibilityMode
 CONCAT
@@ -44,7 +48,9 @@ COnOfftype
 Convertion
 convertion
 COTH
+COUNTIF
 COUNTIFS
+CRN
 CSC
 CSCH
 CSV
@@ -62,6 +68,8 @@ Docx
 docx
 DOTX
 drag'n'drop
+dereference
+DOM
 endnotes
 ePub
 EQ
@@ -76,6 +84,7 @@ fodp
 fods
 fodt
 FORMULATEXT
+FilePass
 FTEST
 GAMMADIST
 GAMMAINV
@@ -85,6 +94,7 @@ hideContentControlTrack
 HiDPI
 HLOOKUP
 html
+HLink
 HYPGEOM
 icu
 IFNA
@@ -98,6 +108,7 @@ IMSINH
 IMTAN
 InsertContent
 INV
+itabLast
 japanese
 JPG
 JS
@@ -158,12 +169,17 @@ ppt
 pptx
 PptxFormat
 Preseentation
+pictFmla
 RANDARRAY
 rastr
 ReadFromBinary
 Realtime
+REGEXEXTRACT
+REGEXREPLACE
+REGEXTEST
 rect
 republika
+rgXTI
 RTF
 rtf
 savefile
@@ -194,11 +210,13 @@ TINV
 TOC
 tooltip
 trackpad
+TSV
 TXT
 txt
 UI
 uncalculated
 undelete
+untrusted
 undocking
 Ungroup
 ungroup

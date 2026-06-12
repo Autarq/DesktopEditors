@@ -3,6 +3,10 @@ name: Windows Package
 on:
   workflow_dispatch:
     inputs:
+      package_prebuilt_payload:
+        description: Package an existing build_tools/out Windows payload
+        type: boolean
+        default: false
       arch:
         description: Windows architecture
         type: choice
@@ -49,7 +53,7 @@ jobs:
           }
 
   package:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && inputs.package_prebuilt_payload
     runs-on: windows-2022
     needs: validate
     steps:
@@ -69,3 +73,24 @@ jobs:
             desktop-apps/package/zip/*.zip
             desktop-apps/package/inno/*.exe
           if-no-files-found: error
+
+  payload-required:
+    if: github.event_name == 'workflow_dispatch' && !inputs.package_prebuilt_payload
+    runs-on: windows-2022
+    needs: validate
+    steps:
+      - name: Explain Windows packaging boundary
+        shell: pwsh
+        run: |
+          @"
+          Windows packaging was not run because package_prebuilt_payload=false.
+
+          This workflow validates the AUTARQ Windows packaging wrapper on hosted
+          runners. Packaging requires a native Windows desktop payload under
+          build_tools/out/win_*/AUTARQ/DesktopEditors, which is produced by the
+          pinned build_tools Windows build outside this wrapper.
+
+          To package an existing payload, rerun this workflow with
+          package_prebuilt_payload=true on a runner/workspace where the payload
+          is already present.
+          "@ | Write-Host

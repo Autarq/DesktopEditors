@@ -160,7 +160,14 @@ The AUTARQ fork includes three build workflows:
 - `macOS ARM64`: preflight on PR/push and a manual full Apple Silicon app build.
 - `Linux Packages`: Docker Buildx Bake plus `.deb` and `.rpm` packaging.
 - `Windows Package`: validates the packaging wrapper on PR/push and packages a
-  prebuilt Windows payload on manual dispatch.
+  prebuilt Windows payload on manual dispatch when
+  `package_prebuilt_payload=true`.
+
+The Windows workflow does not compile the native desktop payload on
+GitHub-hosted runners. A normal manual dispatch validates the wrapper and exits
+successfully with an explanatory note. To create Windows ZIP/installer artifacts,
+run it on a workspace where `build_tools/out/win_*/AUTARQ/DesktopEditors` already
+exists and set `package_prebuilt_payload=true`.
 
 GitHub-hosted macOS ARM runners currently have much less free disk space than a
 local release build machine. The hosted workflow keeps the preflight threshold
