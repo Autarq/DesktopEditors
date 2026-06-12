@@ -113,7 +113,9 @@ BuildToolsRev = $BuildToolsRev
 
 Push-Location $BuildToolsDir
 try {
-    Invoke-Checked -FilePath "python" -ArgumentList @("make.py")
+    $VcVarsAll = Join-Path $VsPath "vcvarsall.bat"
+    $BuildCommand = "`"$VcVarsAll`" x64 && python make.py"
+    Invoke-Checked -FilePath "cmd.exe" -ArgumentList @("/d", "/s", "/c", $BuildCommand)
 }
 finally {
     Pop-Location
