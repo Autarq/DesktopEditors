@@ -82,6 +82,10 @@ if (-not $VsPath -or -not (Test-Path (Join-Path $VsPath "vcvarsall.bat"))) {
     throw "Unable to find vcvarsall.bat. Pass -VsPath or install Visual Studio Build Tools."
 }
 
+$VsInstallRoot = Resolve-Path (Join-Path $VsPath "../../..")
+$env:vs2019_install = $VsInstallRoot.Path
+$env:GYP_MSVS_OVERRIDE_PATH = $VsInstallRoot.Path
+
 $QtRoot = $QtRoot.Replace("\", "/")
 $Qmake = Join-Path $QtRoot "msvc2019_64/bin/qmake.exe"
 if (-not (Test-Path $Qmake)) {
@@ -140,6 +144,7 @@ Arch       = $Arch
 QtRoot     = $QtRoot
 Qmake      = $Qmake
 VsPath     = $VsPath
+VsRoot     = $($VsInstallRoot.Path)
 BuildTools = $BuildToolsDir
 BuildToolsRev = $BuildToolsRev
 "@
