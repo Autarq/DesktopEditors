@@ -28,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
       - name: Install host tools
         run: |
           brew update
@@ -52,8 +52,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: recursive
-          fetch-depth: 0
+          fetch-depth: 1
+      - name: Checkout submodules
+        run: |
+          git submodule sync --recursive
+          git -c protocol.version=2 submodule update --init --recursive --depth 1 --jobs 8
       - name: Install host tools
         run: |
           brew update

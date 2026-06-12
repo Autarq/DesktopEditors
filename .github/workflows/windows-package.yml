@@ -42,7 +42,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
       - name: Validate Windows packaging wrapper
         shell: pwsh
         run: |
@@ -66,8 +66,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: recursive
-          fetch-depth: 0
+          fetch-depth: 1
+      - name: Checkout submodules
+        shell: pwsh
+        run: |
+          git submodule sync --recursive
+          git -c protocol.version=2 submodule update --init --recursive --depth 1 --jobs 8
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
