@@ -162,6 +162,11 @@ The AUTARQ fork includes three build workflows:
 - `Windows Package`: validates the packaging wrapper on PR/push and packages a
   prebuilt Windows payload on manual dispatch.
 
+GitHub-hosted macOS ARM runners currently have much less free disk space than a
+local release build machine. The hosted workflow keeps the preflight threshold
+low enough to validate Xcode, Qt and script wiring. Full release builds should
+run on an Apple Silicon runner with roughly 120 GiB free disk space.
+
 ### macOS Requirements
 
 - macOS on Apple Silicon

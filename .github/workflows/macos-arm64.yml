@@ -36,6 +36,8 @@ jobs:
           brew install qt@5 cmake ninja jq imagemagick || true
       - name: macOS preflight
         working-directory: build
+        env:
+          MIN_FREE_GIB: "30"
         run: ./macos/build.sh --check
 
   build:
@@ -45,7 +47,7 @@ jobs:
     timeout-minutes: 360
     env:
       EO_SKIP_LAUNCH: "1"
-      MIN_FREE_GIB: "80"
+      MIN_FREE_GIB: "30"
       EO_MACOS_PRODUCTS: suite
       AUTARQ_AI_API_KEY: ${{ secrets.AUTARQ_AI_API_KEY }}
     steps:
