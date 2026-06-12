@@ -2,7 +2,8 @@ param (
     [ValidateSet("x64")]
     [string]$Arch = "x64",
     [string]$QtRoot = "C:/Qt/5.15.2",
-    [string]$VsPath
+    [string]$VsPath,
+    [string]$BuildToolsRev = $env:BUILD_TOOLS_REV
 )
 
 $ErrorActionPreference = "Stop"
@@ -12,6 +13,22 @@ $BuildRoot = Resolve-Path (Join-Path $ScriptDir "..")
 $RepoRoot = Resolve-Path (Join-Path $BuildRoot "..")
 $BuildToolsDir = Join-Path $RepoRoot "build_tools"
 $ConfigPath = Join-Path $BuildToolsDir "config"
+
+if (-not $BuildToolsRev) {
+    $BuildToolsRev = "c5f6c2e02b50dfcc5c53a207f9a6cde84896de91"
+}
+
+function Invoke-Checked {
+    param (
+        [Parameter(Mandatory=$true)][string]$FilePath,
+        [Parameter(Mandatory=$true)][string[]]$ArgumentList
+    )
+
+    & $FilePath @ArgumentList
+    if ($LASTEXITCODE -ne 0) {
+        throw "Command failed with exit code $LASTEXITCODE: $FilePath $($ArgumentList -join ' ')"
+    }
+}
 
 if ($Arch -ne "x64") {
     throw "The hosted Windows source build currently supports x64 only."
@@ -38,6 +55,24 @@ $Qmake = Join-Path $QtRoot "msvc2019_64/bin/qmake.exe"
 if (-not (Test-Path $Qmake)) {
     throw "Missing Qt qmake for win_64: $Qmake"
 }
+
+if (-not (Test-Path (Join-Path $BuildToolsDir ".git"))) {
+    if (Test-Path $BuildToolsDir) {
+        throw "build_tools exists but is not a git checkout: $BuildToolsDir"
+    }
+
+    Write-Host "Cloning ONLYOFFICE/build_tools into $BuildToolsDir"
+    Invoke-Checked -FilePath "git" -ArgumentList @(
+        "clone",
+        "--filter=blob:none",
+        "https://github.com/ONLYOFFICE/build_tools.git",
+        $BuildToolsDir
+    )
+}
+
+Write-Host "Checking out build_tools $BuildToolsRev"
+Invoke-Checked -FilePath "git" -ArgumentList @("-C", $BuildToolsDir, "fetch", "--tags", "origin")
+Invoke-Checked -FilePath "git" -ArgumentList @("-C", $BuildToolsDir, "checkout", $BuildToolsRev)
 
 @"
 update="0"
@@ -73,11 +108,12 @@ QtRoot     = $QtRoot
 Qmake      = $Qmake
 VsPath     = $VsPath
 BuildTools = $BuildToolsDir
+BuildToolsRev = $BuildToolsRev
 "@
 
 Push-Location $BuildToolsDir
 try {
-    python make.py
+    Invoke-Checked -FilePath "python" -ArgumentList @("make.py")
 }
 finally {
     Pop-Location
