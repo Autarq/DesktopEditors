@@ -8,11 +8,29 @@ on:
     paths:
       - ".github/workflows/linux-packages.yml"
       - "build/**"
+      - "core"
+      - "core-fonts"
+      - "desktop-apps"
+      - "desktop-sdk"
+      - "dictionaries"
+      - "document-templates"
+      - "sdkjs"
+      - "sdkjs-forms"
+      - "web-apps"
       - ".gitmodules"
   pull_request:
     paths:
       - ".github/workflows/linux-packages.yml"
       - "build/**"
+      - "core"
+      - "core-fonts"
+      - "desktop-apps"
+      - "desktop-sdk"
+      - "dictionaries"
+      - "document-templates"
+      - "sdkjs"
+      - "sdkjs-forms"
+      - "web-apps"
       - ".gitmodules"
 
 jobs:
