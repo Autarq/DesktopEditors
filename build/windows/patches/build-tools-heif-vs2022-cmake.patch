@@ -1,0 +1,13 @@
+diff --git a/scripts/core_common/modules/heif.py b/scripts/core_common/modules/heif.py
+index 352ae07..61d94ff 100644
+--- a/scripts/core_common/modules/heif.py
++++ b/scripts/core_common/modules/heif.py
+@@ -29,7 +29,7 @@ OLD_ENV = dict()
+ def get_vs_version():
+   vs_version = "14 2015"
+   if config.option("vs-version") == "2019":
+-    vs_version = "16 2019"
++    vs_version = os.environ.get("EO_WINDOWS_CMAKE_VS_VERSION", "16 2019")
+   return vs_version
+ 
+ def get_xcode_sdk(platform):

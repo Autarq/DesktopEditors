@@ -85,6 +85,8 @@ if (-not $VsPath -or -not (Test-Path (Join-Path $VsPath "vcvarsall.bat"))) {
 $VsInstallRoot = Resolve-Path (Join-Path $VsPath "../../..")
 $env:vs2019_install = $VsInstallRoot.Path
 $env:GYP_MSVS_OVERRIDE_PATH = $VsInstallRoot.Path
+# Older build_tools scripts still key off vs-version=2019, while HEIF/x265 CMake needs the hosted VS2022 generator.
+$env:EO_WINDOWS_CMAKE_VS_VERSION = "17 2022"
 
 $QtRoot = $QtRoot.Replace("\", "/")
 $Qmake = Join-Path $QtRoot "msvc2019_64/bin/qmake.exe"
@@ -110,6 +112,7 @@ Write-Host "Checking out build_tools $BuildToolsRev"
 Invoke-Checked -FilePath "git" -ArgumentList @("-C", $BuildToolsDir, "fetch", "--tags", "origin")
 Invoke-Checked -FilePath "git" -ArgumentList @("-C", $BuildToolsDir, "checkout", $BuildToolsRev)
 Apply-BuildToolsPatch -PatchPath (Join-Path $ScriptDir "patches/build-tools-boost-win64-architecture.patch")
+Apply-BuildToolsPatch -PatchPath (Join-Path $ScriptDir "patches/build-tools-heif-vs2022-cmake.patch")
 
 @"
 update="0"
