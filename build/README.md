@@ -69,7 +69,7 @@ Linux builds continue to use Docker Buildx Bake:
 
 ```sh
 cd DesktopEditors/build
-docker buildx bake
+docker buildx bake --allow=fs=/tmp --allow=fs.read=..
 ```
 
 The exported desktop build is written to:

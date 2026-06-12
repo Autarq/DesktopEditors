@@ -32,7 +32,7 @@ jobs:
           sudo gem install --no-document fpm
       - name: Build Linux desktop export
         working-directory: build
-        run: docker buildx bake
+        run: docker buildx bake --allow=fs=/tmp --allow=fs.read=..
       - name: Build deb and rpm packages
         working-directory: build
         run: ./linux/package.sh all
