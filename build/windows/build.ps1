@@ -30,6 +30,31 @@ function Invoke-Checked {
     }
 }
 
+function Apply-BuildToolsPatch {
+    param (
+        [Parameter(Mandatory=$true)][string]$PatchPath
+    )
+
+    if (-not (Test-Path $PatchPath)) {
+        return
+    }
+
+    & git -C $BuildToolsDir apply --check $PatchPath
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Applying build_tools patch: $PatchPath"
+        Invoke-Checked -FilePath "git" -ArgumentList @("-C", $BuildToolsDir, "apply", $PatchPath)
+        return
+    }
+
+    & git -C $BuildToolsDir apply --reverse --check $PatchPath
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "build_tools patch already applied: $PatchPath"
+        return
+    }
+
+    throw "Unable to apply build_tools patch: $PatchPath"
+}
+
 if ($Arch -ne "x64") {
     throw "The hosted Windows source build currently supports x64 only."
 }
@@ -73,6 +98,7 @@ if (-not (Test-Path (Join-Path $BuildToolsDir ".git"))) {
 Write-Host "Checking out build_tools $BuildToolsRev"
 Invoke-Checked -FilePath "git" -ArgumentList @("-C", $BuildToolsDir, "fetch", "--tags", "origin")
 Invoke-Checked -FilePath "git" -ArgumentList @("-C", $BuildToolsDir, "checkout", $BuildToolsRev)
+Apply-BuildToolsPatch -PatchPath (Join-Path $ScriptDir "patches/build-tools-boost-win64-architecture.patch")
 
 @"
 update="0"
