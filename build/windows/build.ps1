@@ -26,7 +26,7 @@ function Invoke-Checked {
 
     & $FilePath @ArgumentList
     if ($LASTEXITCODE -ne 0) {
-        throw "Command failed with exit code $LASTEXITCODE: $FilePath $($ArgumentList -join ' ')"
+        throw "Command failed with exit code ${LASTEXITCODE}: $FilePath $($ArgumentList -join ' ')"
     }
 }
 
