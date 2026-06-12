@@ -39,17 +39,24 @@ function Apply-BuildToolsPatch {
         return
     }
 
-    & git -C $BuildToolsDir apply --check $PatchPath
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "Applying build_tools patch: $PatchPath"
-        Invoke-Checked -FilePath "git" -ArgumentList @("-C", $BuildToolsDir, "apply", $PatchPath)
-        return
-    }
+    foreach ($UseZeroContext in @($false, $true)) {
+        $PatchMode = @()
+        if ($UseZeroContext) {
+            $PatchMode = @("--unidiff-zero")
+        }
 
-    & git -C $BuildToolsDir apply --reverse --check $PatchPath
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "build_tools patch already applied: $PatchPath"
-        return
+        & git -C $BuildToolsDir apply @PatchMode --check $PatchPath
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "Applying build_tools patch: $PatchPath"
+            Invoke-Checked -FilePath "git" -ArgumentList (@("-C", $BuildToolsDir, "apply") + $PatchMode + @($PatchPath))
+            return
+        }
+
+        & git -C $BuildToolsDir apply @PatchMode --reverse --check $PatchPath
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "build_tools patch already applied: $PatchPath"
+            return
+        }
     }
 
     throw "Unable to apply build_tools patch: $PatchPath"
