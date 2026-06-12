@@ -3,6 +3,10 @@ name: Windows Package
 on:
   workflow_dispatch:
     inputs:
+      full_build:
+        description: Build the Windows x64 desktop payload before packaging
+        type: boolean
+        default: true
       package_prebuilt_payload:
         description: Package an existing build_tools/out Windows payload
         type: boolean
@@ -12,8 +16,6 @@ on:
         type: choice
         options:
           - x64
-          - arm64
-          - x86
         default: x64
       installer:
         description: Build Inno Setup installer when available
@@ -51,16 +53,36 @@ jobs:
           if ($errors.Count -gt 0) {
             $errors | Format-List | Out-String | Write-Error
           }
+          [System.Management.Automation.Language.Parser]::ParseFile("build/windows/build.ps1", [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | Format-List | Out-String | Write-Error
+          }
 
   package:
-    if: github.event_name == 'workflow_dispatch' && inputs.package_prebuilt_payload
+    if: github.event_name == 'workflow_dispatch' && (inputs.full_build || inputs.package_prebuilt_payload)
     runs-on: windows-2022
+    timeout-minutes: 360
     needs: validate
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Qt
+        if: inputs.full_build
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          python -m pip install --upgrade pip
+          python -m pip install aqtinstall
+          python -m aqt install-qt windows desktop 5.15.2 win64_msvc2019_64 -O C:\Qt
+      - name: Build Windows x64 payload
+        if: inputs.full_build
+        shell: pwsh
+        run: ./build/windows/build.ps1 -Arch "${{ inputs.arch }}" -QtRoot "C:/Qt/5.15.2"
       - name: Package existing Windows build output
         shell: pwsh
         run: |
@@ -75,7 +97,7 @@ jobs:
           if-no-files-found: error
 
   payload-required:
-    if: github.event_name == 'workflow_dispatch' && !inputs.package_prebuilt_payload
+    if: github.event_name == 'workflow_dispatch' && !inputs.full_build && !inputs.package_prebuilt_payload
     runs-on: windows-2022
     needs: validate
     steps:

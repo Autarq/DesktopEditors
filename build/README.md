@@ -133,25 +133,25 @@ builds can be added later using the same `build/macos` layout.
 
 ## Windows
 
-Windows packaging uses the upstream PowerShell scripts under
-`desktop-apps/package`. The wrapper in this repository expects the native
-Windows payload to already exist under `build_tools/out` and then creates a ZIP
-package, with optional Inno Setup installer output:
+Windows x64 builds use the pinned `build_tools` checkout to create a native
+payload under `build_tools/out/win_64/AUTARQ/DesktopEditors`, then package it
+with the upstream PowerShell scripts under `desktop-apps/package`.
 
 ```powershell
 cd DesktopEditors
+.\build\windows\build.ps1 -Arch x64 -QtRoot C:/Qt/5.15.2
 .\build\windows\package.ps1 -Arch x64
 ```
 
-Expected native payload path for x64:
+Expected native payload path:
 
 ```text
 DesktopEditors\build_tools\out\win_64\AUTARQ\DesktopEditors
 ```
 
-The wrapper intentionally fails if that payload is missing. That keeps CI and
-release runs explicit about the boundary between compiling the Windows desktop
-payload and packaging it.
+The package wrapper still supports prebuilt payloads. That keeps release runs
+explicit when packaging is repeated on a workspace where the native payload was
+already created.
 
 ## GitHub Actions
 
@@ -159,15 +159,16 @@ The AUTARQ fork includes three build workflows:
 
 - `macOS ARM64`: preflight on PR/push and a manual full Apple Silicon app build.
 - `Linux Packages`: Docker Buildx Bake plus `.deb` and `.rpm` packaging.
-- `Windows Package`: validates the packaging wrapper on PR/push and packages a
-  prebuilt Windows payload on manual dispatch when
-  `package_prebuilt_payload=true`.
+- `Windows Package`: validates the Windows build/package wrappers on PR/push,
+  and on manual dispatch builds the hosted x64 payload plus ZIP package by
+  default.
 
-The Windows workflow does not compile the native desktop payload on
-GitHub-hosted runners. A normal manual dispatch validates the wrapper and exits
-successfully with an explanatory note. To create Windows ZIP/installer artifacts,
-run it on a workspace where `build_tools/out/win_*/AUTARQ/DesktopEditors` already
-exists and set `package_prebuilt_payload=true`.
+The Windows workflow has two manual modes:
+
+- `full_build=true` builds the x64 payload from source on the hosted runner,
+  then packages it.
+- `package_prebuilt_payload=true` skips compilation and packages an existing
+  `build_tools/out/win_64/AUTARQ/DesktopEditors` payload.
 
 GitHub-hosted macOS ARM runners currently have much less free disk space than a
 local release build machine. The hosted workflow keeps the preflight threshold
