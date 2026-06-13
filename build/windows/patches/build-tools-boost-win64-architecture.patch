@@ -13,10 +13,10 @@ index af003e7..e6b9d99 100644
 -      base.cmd("b2.exe", ["--clean"])
 -      base.cmd("b2.exe", ["--prefix=./../build/win_64", "link=static", "--with-filesystem", "--with-system", "--with-date_time", "--with-regex", "--toolset=" + win_toolset, "address-model=64", "install"])
 +      base.cmd2("b2.exe", ["headers"])
-+      base.cmd2("b2.exe", ["--prefix=./../build/win_64", "--stagedir=./../build/win_64/stage", "--build-dir=./../build/win_64/build-temp", "--layout=tagged", "variant=release", "architecture=x86", "address-model=64", "binary-format=pe", "abi=ms", "link=static", "--with-filesystem", "--with-system", "--with-date_time", "--with-regex", "--toolset=" + win_toolset, "install"])
++      base.cmd2("b2.exe", ["--prefix=./../build/win_64", "--stagedir=./../build/win_64/stage", "--build-dir=./../build/win_64/build-temp", "--layout=versioned", "variant=release", "architecture=x86", "address-model=64", "binary-format=pe", "abi=ms", "link=static", "--with-filesystem", "--with-system", "--with-date_time", "--with-regex", "--toolset=" + win_toolset, "install"])
 @@ -85,3 +88,2 @@ def make():
 -      base.cmd("b2.exe", ["headers"])
 -      base.cmd("b2.exe", ["--clean"])
 -      base.cmd("b2.exe", ["--prefix=./../build/win_32", "link=static", "--with-filesystem", "--with-system", "--with-date_time", "--with-regex", "--toolset=" + win_toolset, "address-model=32", "install"])
 +      base.cmd2("b2.exe", ["headers"])
-+      base.cmd2("b2.exe", ["--prefix=./../build/win_32", "--stagedir=./../build/win_32/stage", "--build-dir=./../build/win_32/build-temp", "--layout=tagged", "variant=release", "architecture=x86", "address-model=32", "binary-format=pe", "abi=ms", "link=static", "--with-filesystem", "--with-system", "--with-date_time", "--with-regex", "--toolset=" + win_toolset, "install"])
++      base.cmd2("b2.exe", ["--prefix=./../build/win_32", "--stagedir=./../build/win_32/stage", "--build-dir=./../build/win_32/build-temp", "--layout=versioned", "variant=release", "architecture=x86", "address-model=32", "binary-format=pe", "abi=ms", "link=static", "--with-filesystem", "--with-system", "--with-date_time", "--with-regex", "--toolset=" + win_toolset, "install"])
