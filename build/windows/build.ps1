@@ -188,6 +188,13 @@ $HunspellIncludeForQmake = $HunspellInclude.Replace("\", "/")
 if (Test-Path Env:BUILD_ROOT) {
     Remove-Item Env:BUILD_ROOT
 }
+if (Test-Path Env:NPM_CONFIG_OMIT) {
+    Remove-Item Env:NPM_CONFIG_OMIT
+}
+if (Test-Path Env:npm_config_omit) {
+    Remove-Item Env:npm_config_omit
+}
+$env:NPM_CONFIG_INCLUDE = "dev"
 
 @"
 update="0"
@@ -227,6 +234,7 @@ VsRoot     = $($VsInstallRoot.Path)
 BuildTools = $BuildToolsDir
 BuildToolsRev = $BuildToolsRev
 BUILD_ROOT = default per web-apps/sdkjs Gruntfile
+NPM_CONFIG_INCLUDE = $env:NPM_CONFIG_INCLUDE
 "@
 
 Push-Location $BuildToolsDir
