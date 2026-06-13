@@ -183,6 +183,9 @@ if (-not (Test-Path $HunspellHeader)) {
 }
 $HunspellIncludeForQmake = $HunspellInclude.Replace("\", "/")
 
+$WebAppsBuildRoot = Join-Path $RepoRoot "web-apps/deploy"
+$env:BUILD_ROOT = $WebAppsBuildRoot.Replace("\", "/")
+
 @"
 update="0"
 branch="master"
@@ -220,6 +223,7 @@ VsPath     = $VsPath
 VsRoot     = $($VsInstallRoot.Path)
 BuildTools = $BuildToolsDir
 BuildToolsRev = $BuildToolsRev
+BUILD_ROOT = $env:BUILD_ROOT
 "@
 
 Push-Location $BuildToolsDir
