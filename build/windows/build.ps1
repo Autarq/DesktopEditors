@@ -176,6 +176,13 @@ if (-not (Test-Path $HyphenHeader)) {
 }
 $HyphenIncludeForQmake = $HyphenDir.Replace("\", "/")
 
+$HunspellInclude = Join-Path $RepoRoot "core/Common/3dParty/hunspell/hunspell/src"
+$HunspellHeader = Join-Path $HunspellInclude "hunspell/hunspell.h"
+if (-not (Test-Path $HunspellHeader)) {
+    Write-Host "Hunspell sources are not present yet; build_tools will fetch them before compiling the desktop app"
+}
+$HunspellIncludeForQmake = $HunspellInclude.Replace("\", "/")
+
 @"
 update="0"
 branch="master"
@@ -201,7 +208,7 @@ multiprocess="1"
 sysroot="0"
 branding-name="AUTARQ"
 config_addon_windows="no_tests"
-qmake_addon="INCLUDEPATH+=$BrotliIncludeForQmake INCLUDEPATH+=$HarfBuzzIncludeForQmake INCLUDEPATH+=$HyphenIncludeForQmake"
+qmake_addon="INCLUDEPATH+=$BrotliIncludeForQmake INCLUDEPATH+=$HarfBuzzIncludeForQmake INCLUDEPATH+=$HyphenIncludeForQmake INCLUDEPATH+=$HunspellIncludeForQmake"
 "@ | Set-Content -Encoding UTF8 -Path $ConfigPath
 
 Write-Host @"
