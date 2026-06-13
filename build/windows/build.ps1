@@ -113,6 +113,7 @@ Invoke-Checked -FilePath "git" -ArgumentList @("-C", $BuildToolsDir, "fetch", "-
 Invoke-Checked -FilePath "git" -ArgumentList @("-C", $BuildToolsDir, "checkout", $BuildToolsRev)
 Apply-BuildToolsPatch -PatchPath (Join-Path $ScriptDir "patches/build-tools-boost-win64-architecture.patch")
 Apply-BuildToolsPatch -PatchPath (Join-Path $ScriptDir "patches/build-tools-heif-vs2022-cmake.patch")
+Apply-BuildToolsPatch -PatchPath (Join-Path $ScriptDir "patches/build-tools-heif-x265-archive-fallback.patch")
 
 $BrotliDir = Join-Path $RepoRoot "core/Common/3dParty/brotli"
 $BrotliInclude = Join-Path $BrotliDir "brotli/c/include"
