@@ -114,6 +114,24 @@ Invoke-Checked -FilePath "git" -ArgumentList @("-C", $BuildToolsDir, "checkout",
 Apply-BuildToolsPatch -PatchPath (Join-Path $ScriptDir "patches/build-tools-boost-win64-architecture.patch")
 Apply-BuildToolsPatch -PatchPath (Join-Path $ScriptDir "patches/build-tools-heif-vs2022-cmake.patch")
 
+$BrotliDir = Join-Path $RepoRoot "core/Common/3dParty/brotli"
+$BrotliInclude = Join-Path $BrotliDir "brotli/c/include"
+$BrotliDecodeHeader = Join-Path $BrotliInclude "brotli/decode.h"
+if (-not (Test-Path $BrotliDecodeHeader)) {
+    Write-Host "Preparing Brotli sources for Windows FreeType build"
+    Push-Location $BrotliDir
+    try {
+        Invoke-Checked -FilePath "python" -ArgumentList @("make.py")
+    }
+    finally {
+        Pop-Location
+    }
+}
+if (-not (Test-Path $BrotliDecodeHeader)) {
+    throw "Missing Brotli decode header after preparation: $BrotliDecodeHeader"
+}
+$BrotliIncludeForQmake = $BrotliInclude.Replace("\", "/")
+
 @"
 update="0"
 branch="master"
@@ -139,6 +157,7 @@ multiprocess="1"
 sysroot="0"
 branding-name="AUTARQ"
 config_addon_windows="no_tests"
+qmake_addon="INCLUDEPATH+=$BrotliIncludeForQmake"
 "@ | Set-Content -Encoding UTF8 -Path $ConfigPath
 
 Write-Host @"
