@@ -256,6 +256,13 @@ The HEIF dependency path in `build_tools` currently requires CMake `>= 3.21`
 and `< 4`. If the host only has CMake 4 or no CMake, the script creates a
 temporary local CMake venv under `build/deploy/macos/tools/cmake-venv`.
 
+The pinned `build_tools` HEIF module fetches x265 from Bitbucket, which can be
+unavailable on hosted runners. The macOS and Windows wrappers apply the shared
+`build/patches/build-tools-heif-x265-archive-fallback.patch` patch before
+building so x265 is fetched from release tarball mirrors first and the original
+Git source remains a fallback. Set `EO_X265_ARCHIVE_URLS` to override the
+mirror list.
+
 The macOS wrapper also exports fetched `katana-parser/src`, `gumbo-parser/src`,
 `hyphen`, and `hunspell/hunspell/src` include paths for the qmake build, which
 otherwise cannot resolve headers such as `katana.h`, `gumbo.h`,

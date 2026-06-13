@@ -45,6 +45,7 @@ TOOLS_BIN_DIR="${BUILD_DIR}/deploy/macos/tools/bin"
 CMAKE_VENV_DIR="${BUILD_DIR}/deploy/macos/tools/cmake-venv"
 DRAWIO_PLUGIN_CACHE_DIR="${DRAWIO_PLUGIN_CACHE_DIR:-${BUILD_DIR}/deploy/macos/tools/drawio}"
 BUILD_TOOLS_DIR="${REPO_ROOT}/build_tools"
+BUILD_TOOLS_PATCH_DIR="${BUILD_DIR}/patches"
 DESKTOP_APPS_DIR="${DESKTOP_APPS_DIR:-${REPO_ROOT}/desktop-apps}"
 XCODE_PROJECT="${DESKTOP_APPS_DIR}/macos/ONLYOFFICE.xcodeproj"
 AI_PLUGIN_ID="{9DC93CDB-B576-4F0C-B55E-FCC9C48DD777}"
@@ -483,6 +484,28 @@ ensure_build_tools() {
   info "checking out build_tools ${BUILD_TOOLS_REV}"
   git -C "${BUILD_TOOLS_DIR}" fetch --tags origin
   git -C "${BUILD_TOOLS_DIR}" checkout "${BUILD_TOOLS_REV}"
+  apply_build_tools_patch "${BUILD_TOOLS_PATCH_DIR}/build-tools-heif-x265-archive-fallback.patch"
+}
+
+apply_build_tools_patch() {
+  local patch_path="$1"
+
+  if [[ ! -f "${patch_path}" ]]; then
+    return
+  fi
+
+  if git -C "${BUILD_TOOLS_DIR}" apply --check "${patch_path}" >/dev/null 2>&1; then
+    info "applying build_tools patch: ${patch_path}"
+    git -C "${BUILD_TOOLS_DIR}" apply "${patch_path}"
+    return
+  fi
+
+  if git -C "${BUILD_TOOLS_DIR}" apply --reverse --check "${patch_path}" >/dev/null 2>&1; then
+    info "build_tools patch already applied: ${patch_path}"
+    return
+  fi
+
+  fail "unable to apply build_tools patch: ${patch_path}"
 }
 
 ensure_python_shim() {
