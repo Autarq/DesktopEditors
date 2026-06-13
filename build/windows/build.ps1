@@ -183,8 +183,9 @@ if (-not (Test-Path $HunspellHeader)) {
 }
 $HunspellIncludeForQmake = $HunspellInclude.Replace("\", "/")
 
-$WebAppsBuildRoot = Join-Path $RepoRoot "web-apps/deploy"
-$env:BUILD_ROOT = $WebAppsBuildRoot.Replace("\", "/")
+if (Test-Path Env:BUILD_ROOT) {
+    Remove-Item Env:BUILD_ROOT
+}
 
 @"
 update="0"
@@ -223,7 +224,7 @@ VsPath     = $VsPath
 VsRoot     = $($VsInstallRoot.Path)
 BuildTools = $BuildToolsDir
 BuildToolsRev = $BuildToolsRev
-BUILD_ROOT = $env:BUILD_ROOT
+BUILD_ROOT = default per web-apps/sdkjs Gruntfile
 "@
 
 Push-Location $BuildToolsDir
