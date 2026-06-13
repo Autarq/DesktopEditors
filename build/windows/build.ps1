@@ -132,6 +132,31 @@ if (-not (Test-Path $BrotliDecodeHeader)) {
 }
 $BrotliIncludeForQmake = $BrotliInclude.Replace("\", "/")
 
+$HarfBuzzDir = Join-Path $RepoRoot "core/Common/3dParty/harfbuzz"
+$HarfBuzzInclude = Join-Path $HarfBuzzDir "harfbuzz/src"
+$HarfBuzzHeader = Join-Path $HarfBuzzInclude "hb.h"
+$HarfBuzzPri = Join-Path $HarfBuzzDir "harfbuzz.pri"
+if ((Test-Path (Join-Path $HarfBuzzDir "harfbuzz")) -and -not (Test-Path $HarfBuzzPri)) {
+    Remove-Item -Recurse -Force (Join-Path $HarfBuzzDir "harfbuzz")
+}
+if ((-not (Test-Path $HarfBuzzHeader)) -or (-not (Test-Path $HarfBuzzPri))) {
+    Write-Host "Preparing HarfBuzz sources for Windows text shaper build"
+    Push-Location $HarfBuzzDir
+    try {
+        Invoke-Checked -FilePath "python" -ArgumentList @("make.py")
+    }
+    finally {
+        Pop-Location
+    }
+}
+if (-not (Test-Path $HarfBuzzHeader)) {
+    throw "Missing HarfBuzz header after preparation: $HarfBuzzHeader"
+}
+if (-not (Test-Path $HarfBuzzPri)) {
+    throw "Missing HarfBuzz qmake project after preparation: $HarfBuzzPri"
+}
+$HarfBuzzIncludeForQmake = $HarfBuzzInclude.Replace("\", "/")
+
 @"
 update="0"
 branch="master"
@@ -157,7 +182,7 @@ multiprocess="1"
 sysroot="0"
 branding-name="AUTARQ"
 config_addon_windows="no_tests"
-qmake_addon="INCLUDEPATH+=$BrotliIncludeForQmake"
+qmake_addon="INCLUDEPATH+=$BrotliIncludeForQmake INCLUDEPATH+=$HarfBuzzIncludeForQmake"
 "@ | Set-Content -Encoding UTF8 -Path $ConfigPath
 
 Write-Host @"
