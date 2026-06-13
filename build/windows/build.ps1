@@ -157,6 +157,25 @@ if (-not (Test-Path $HarfBuzzPri)) {
 }
 $HarfBuzzIncludeForQmake = $HarfBuzzInclude.Replace("\", "/")
 
+$HyphenDir = Join-Path $RepoRoot "core/Common/3dParty/hyphen"
+$HyphenCheckout = Join-Path $HyphenDir "hyphen"
+$HyphenHeader = Join-Path $HyphenDir "hyphen/hnjalloc.h"
+if (-not (Test-Path $HyphenHeader)) {
+    Write-Host "Preparing Hyphen sources for Windows hyphenation build"
+    if (Test-Path $HyphenCheckout) {
+        Remove-Item -Recurse -Force $HyphenCheckout
+    }
+    Invoke-Checked -FilePath "git" -ArgumentList @(
+        "clone",
+        "https://github.com/hunspell/hyphen.git",
+        $HyphenCheckout
+    )
+}
+if (-not (Test-Path $HyphenHeader)) {
+    throw "Missing Hyphen header after preparation: $HyphenHeader"
+}
+$HyphenIncludeForQmake = $HyphenDir.Replace("\", "/")
+
 @"
 update="0"
 branch="master"
@@ -182,7 +201,7 @@ multiprocess="1"
 sysroot="0"
 branding-name="AUTARQ"
 config_addon_windows="no_tests"
-qmake_addon="INCLUDEPATH+=$BrotliIncludeForQmake INCLUDEPATH+=$HarfBuzzIncludeForQmake"
+qmake_addon="INCLUDEPATH+=$BrotliIncludeForQmake INCLUDEPATH+=$HarfBuzzIncludeForQmake INCLUDEPATH+=$HyphenIncludeForQmake"
 "@ | Set-Content -Encoding UTF8 -Path $ConfigPath
 
 Write-Host @"
