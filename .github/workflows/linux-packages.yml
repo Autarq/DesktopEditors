@@ -60,6 +60,16 @@ jobs:
       - name: Build Linux desktop export
         working-directory: build
         run: docker buildx bake -f docker-bake.hcl -f docker-bake.ci.hcl --set '*.cache-from=' --set '*.cache-to=' --allow=fs=/tmp --allow=fs.read=..
+      - name: Unpack Linux desktop export
+        working-directory: build
+        run: |
+          test -f deploy/desktop.tar
+          rm -rf deploy/desktop
+          mkdir -p deploy/desktop
+          tar -xf deploy/desktop.tar -C deploy/desktop
+          rm deploy/desktop.tar
+          test -x deploy/desktop/DesktopEditors
+          test -f deploy/desktop/start_desktop.sh
       - name: Build deb and rpm packages
         working-directory: build
         run: ./linux/package.sh all

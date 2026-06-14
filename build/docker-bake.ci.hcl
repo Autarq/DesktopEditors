@@ -34,4 +34,8 @@ target "desktop-builder" {
 
 target "desktop-export" {
   cache-from = []
+  # GitHub hosted runners can spend hours copying the large desktop tree via
+  # BuildKit's local directory exporter. Export one tar stream in CI and unpack
+  # it in the workflow; local developer builds still use deploy/desktop.
+  output = ["type=tar,dest=./deploy/desktop.tar"]
 }
