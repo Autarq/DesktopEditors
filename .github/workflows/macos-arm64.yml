@@ -87,8 +87,14 @@ jobs:
           test -d "build/deploy/macos/arm64/AUTARQ Office.app"
           codesign --verify --deep --strict --verbose=4 "build/deploy/macos/arm64/AUTARQ Office.app"
           file "build/deploy/macos/arm64/AUTARQ Office.app/Contents/MacOS/"*
+      - name: Package app artifact
+        run: |
+          mkdir -p build/deploy/macos/arm64/package
+          ditto -c -k --sequesterRsrc --keepParent \
+            "build/deploy/macos/arm64/AUTARQ Office.app" \
+            "build/deploy/macos/arm64/package/AUTARQ-Office-macOS-arm64.zip"
       - uses: actions/upload-artifact@v4
         with:
           name: AUTARQ-Office-macOS-arm64
-          path: build/deploy/macos/arm64/AUTARQ Office.app
+          path: build/deploy/macos/arm64/package/AUTARQ-Office-macOS-arm64.zip
           if-no-files-found: error
