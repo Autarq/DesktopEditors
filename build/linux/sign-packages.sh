@@ -85,6 +85,7 @@ if [[ "${#rpms[@]}" -gt 0 ]]; then
   done
 
   printf '[linux-sign] Embedding rpm package signatures with key %s\n' "${KEY_ID}"
+  rpm --import "${PUBLIC_KEY_PATH}"
   cat > "${GNUPGHOME}/.rpmmacros" <<EOF
 %_signature gpg
 %_gpg_name ${KEY_ID}
@@ -99,7 +100,7 @@ EOF
       --define "_gpg_path ${GNUPGHOME}" \
       --addsign \
       "${rpm_package}"
-    rpm --checksig "${rpm_package}"
+    rpm --checksig --verbose "${rpm_package}"
   done
 fi
 
