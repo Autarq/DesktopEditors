@@ -85,7 +85,6 @@ if [[ "${#rpms[@]}" -gt 0 ]]; then
   done
 
   printf '[linux-sign] Embedding rpm package signatures with key %s\n' "${KEY_ID}"
-  rpm --import "${PUBLIC_KEY_PATH}"
   cat > "${GNUPGHOME}/.rpmmacros" <<EOF
 %_signature gpg
 %_gpg_name ${KEY_ID}
@@ -94,6 +93,7 @@ if [[ "${#rpms[@]}" -gt 0 ]]; then
 %__gpg_sign_cmd %{__gpg} --batch --no-verbose --no-armor --pinentry-mode loopback --passphrase-file ${PASSPHRASE_FILE} --local-user "%{_gpg_name}" -sbo %{__signature_filename} %{__plaintext_filename}
 EOF
   export HOME="${GNUPGHOME}"
+  rpm --import "${PUBLIC_KEY_PATH}"
   for rpm_package in "${rpms[@]}"; do
     rpmsign \
       --define "_gpg_name ${KEY_ID}" \
