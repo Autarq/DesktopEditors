@@ -83,9 +83,10 @@ Required secrets:
 - `LINUX_GPG_PASSPHRASE`
 - `LINUX_GPG_KEY_ID`
 
-The Linux workflow signs generated `.deb` files with `dpkg-sig` and `.rpm`
-files with `rpmsign`. It also exports `autarq-office-packaging-key.asc` next to
-the packages so users can import the public key.
+The Linux workflow creates detached GPG signatures for every generated `.deb`
+and `.rpm` file. RPM files are additionally signed in-place with `rpmsign`.
+It also exports `autarq-office-packaging-key.asc` next to the packages so users
+can import the public key.
 
 For production-grade Linux distribution, publish an APT/YUM repository and sign
 repository metadata as well. Package signatures are useful, but repository

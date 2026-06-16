@@ -60,7 +60,7 @@ jobs:
       - name: Install packaging tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y ruby ruby-dev rpm gnupg dpkg-sig
+          sudo apt-get install -y ruby ruby-dev rpm gnupg
           sudo gem install --no-document fpm
       - name: Build Linux desktop export
         working-directory: build

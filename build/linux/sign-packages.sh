@@ -26,7 +26,6 @@ fi
 need_cmd gpg
 need_cmd rpm
 need_cmd rpmsign
-need_cmd dpkg-sig
 
 mapfile -t debs < <(find "${OUTPUT_DIR}" -maxdepth 1 -type f -name '*.deb' -print | sort)
 mapfile -t rpms < <(find "${OUTPUT_DIR}" -maxdepth 1 -type f -name '*.rpm' -print | sort)
@@ -55,20 +54,37 @@ fi
 
 gpg --batch --homedir "${GNUPGHOME}" --armor --export "${KEY_ID}" > "${PUBLIC_KEY_PATH}"
 
+sign_detached() {
+  local package="$1"
+  local signature="${package}.asc"
+
+  gpg \
+    --batch \
+    --yes \
+    --homedir "${GNUPGHOME}" \
+    --pinentry-mode loopback \
+    --passphrase-file "${PASSPHRASE_FILE}" \
+    --local-user "${KEY_ID}" \
+    --detach-sign \
+    --armor \
+    --output "${signature}" \
+    "${package}"
+  gpg --batch --homedir "${GNUPGHOME}" --verify "${signature}" "${package}"
+}
+
+printf '[linux-sign] Creating detached package signatures with key %s\n' "${KEY_ID}"
 if [[ "${#debs[@]}" -gt 0 ]]; then
-  printf '[linux-sign] Signing deb packages with key %s\n' "${KEY_ID}"
   for deb in "${debs[@]}"; do
-    dpkg-sig \
-      --gpg-options "--batch --pinentry-mode loopback --passphrase-file ${PASSPHRASE_FILE}" \
-      -k "${KEY_ID}" \
-      --sign builder \
-      "${deb}"
-    dpkg-sig --verify "${deb}"
+    sign_detached "${deb}"
   done
 fi
 
 if [[ "${#rpms[@]}" -gt 0 ]]; then
-  printf '[linux-sign] Signing rpm packages with key %s\n' "${KEY_ID}"
+  for rpm_package in "${rpms[@]}"; do
+    sign_detached "${rpm_package}"
+  done
+
+  printf '[linux-sign] Embedding rpm package signatures with key %s\n' "${KEY_ID}"
   cat > "${GNUPGHOME}/rpmmacros" <<EOF
 %_signature gpg
 %_gpg_name ${KEY_ID}
