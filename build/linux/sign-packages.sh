@@ -85,7 +85,7 @@ if [[ "${#rpms[@]}" -gt 0 ]]; then
   done
 
   printf '[linux-sign] Embedding rpm package signatures with key %s\n' "${KEY_ID}"
-  cat > "${GNUPGHOME}/rpmmacros" <<EOF
+  cat > "${GNUPGHOME}/.rpmmacros" <<EOF
 %_signature gpg
 %_gpg_name ${KEY_ID}
 %_gpg_path ${GNUPGHOME}
@@ -94,7 +94,11 @@ if [[ "${#rpms[@]}" -gt 0 ]]; then
 EOF
   export HOME="${GNUPGHOME}"
   for rpm_package in "${rpms[@]}"; do
-    rpmsign --addsign "${rpm_package}"
+    rpmsign \
+      --define "_gpg_name ${KEY_ID}" \
+      --define "_gpg_path ${GNUPGHOME}" \
+      --addsign \
+      "${rpm_package}"
     rpm --checksig "${rpm_package}"
   done
 fi
