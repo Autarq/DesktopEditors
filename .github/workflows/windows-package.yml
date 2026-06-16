@@ -79,8 +79,14 @@ jobs:
   package:
     if: github.event_name == 'workflow_dispatch' && (inputs.full_build || inputs.package_prebuilt_payload)
     runs-on: windows-2022
+    environment: release-signing
     timeout-minutes: 360
     needs: validate
+    env:
+      WINDOWS_CODE_SIGNING_PFX_BASE64: ${{ secrets.WINDOWS_CODE_SIGNING_PFX_BASE64 }}
+      WINDOWS_CODE_SIGNING_PFX_PASSWORD: ${{ secrets.WINDOWS_CODE_SIGNING_PFX_PASSWORD }}
+      WINDOWS_CODE_SIGNING_CERT_SUBJECT: ${{ secrets.WINDOWS_CODE_SIGNING_CERT_SUBJECT }}
+      WINDOWS_TIMESTAMP_SERVER: ${{ vars.WINDOWS_TIMESTAMP_SERVER || 'http://timestamp.digicert.com' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -105,11 +111,32 @@ jobs:
         if: inputs.full_build
         shell: pwsh
         run: ./build/windows/build.ps1 -Arch "${{ inputs.arch }}" -QtRoot "C:/Qt/5.15.2"
+      - name: Import Windows code signing certificate when configured
+        if: env.WINDOWS_CODE_SIGNING_PFX_BASE64 != '' && env.WINDOWS_CODE_SIGNING_PFX_PASSWORD != ''
+        shell: pwsh
+        run: |
+          ./build/windows/import-code-signing-cert.ps1 `
+            -PfxBase64 "$env:WINDOWS_CODE_SIGNING_PFX_BASE64" `
+            -Password "$env:WINDOWS_CODE_SIGNING_PFX_PASSWORD"
       - name: Package existing Windows build output
         shell: pwsh
         run: |
           $installer = [System.Convert]::ToBoolean("${{ inputs.installer }}")
-          ./build/windows/package.ps1 -Arch "${{ inputs.arch }}" -Installer:$installer
+          $sign = -not [string]::IsNullOrWhiteSpace($env:WINDOWS_CODE_SIGNING_PFX_BASE64) -and `
+              -not [string]::IsNullOrWhiteSpace($env:WINDOWS_CODE_SIGNING_PFX_PASSWORD) -and `
+              -not [string]::IsNullOrWhiteSpace($env:WINDOWS_CODE_SIGNING_CERT_SUBJECT)
+
+          if ($sign) {
+            ./build/windows/package.ps1 `
+              -Arch "${{ inputs.arch }}" `
+              -Installer:$installer `
+              -Sign `
+              -CertName "$env:WINDOWS_CODE_SIGNING_CERT_SUBJECT" `
+              -TimestampServer "$env:WINDOWS_TIMESTAMP_SERVER"
+          } else {
+            Write-Host "Windows code signing secrets are not configured; packaging unsigned payload."
+            ./build/windows/package.ps1 -Arch "${{ inputs.arch }}" -Installer:$installer
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: AUTARQ-Office-windows-${{ inputs.arch }}

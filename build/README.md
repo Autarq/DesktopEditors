@@ -153,6 +153,32 @@ The package wrapper still supports prebuilt payloads. That keeps release runs
 explicit when packaging is repeated on a workspace where the native payload was
 already created.
 
+## Release Signing
+
+Optional release signing is documented in [`SIGNING.md`](SIGNING.md). The
+GitHub workflows use the `release-signing` environment and skip signing when
+the required environment secrets are not configured.
+
+At a high level:
+
+- macOS uses Developer ID Application signing plus Apple notarization.
+- Windows uses an Authenticode code-signing certificate imported from a PFX
+  secret and signs binaries before ZIP packaging.
+- Linux signs generated `.deb` and `.rpm` packages with the AUTARQ GPG release
+  key when configured.
+
+## Homebrew
+
+The Homebrew Cask template lives under
+[`homebrew/Casks/autarq-office.rb`](homebrew/Casks/autarq-office.rb). Copy that
+file into a public `Autarq/homebrew-tap` repository to make the macOS ZIP
+installable with:
+
+```sh
+brew tap Autarq/tap
+brew install --cask autarq-office
+```
+
 ## GitHub Actions
 
 The AUTARQ fork includes three build workflows:

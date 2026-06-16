@@ -36,7 +36,12 @@ on:
 jobs:
   deb-rpm:
     runs-on: ubuntu-24.04
+    environment: release-signing
     timeout-minutes: 360
+    env:
+      LINUX_GPG_PRIVATE_KEY: ${{ secrets.LINUX_GPG_PRIVATE_KEY }}
+      LINUX_GPG_PASSPHRASE: ${{ secrets.LINUX_GPG_PASSPHRASE }}
+      LINUX_GPG_KEY_ID: ${{ secrets.LINUX_GPG_KEY_ID }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -55,7 +60,7 @@ jobs:
       - name: Install packaging tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y ruby ruby-dev rpm
+          sudo apt-get install -y ruby ruby-dev rpm gnupg dpkg-sig
           sudo gem install --no-document fpm
       - name: Build Linux desktop export
         working-directory: build
@@ -73,6 +78,11 @@ jobs:
       - name: Build deb and rpm packages
         working-directory: build
         run: ./linux/package.sh all
+      - name: Sign deb and rpm packages when release secrets are configured
+        working-directory: build
+        run: |
+          chmod +x ./linux/sign-packages.sh
+          ./linux/sign-packages.sh
       - uses: actions/upload-artifact@v4
         with:
           name: AUTARQ-Office-linux-packages
