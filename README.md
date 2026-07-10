@@ -1,13 +1,13 @@
 [![License](https://img.shields.io/badge/License-GNU%20AGPL%20V3-green.svg?style=flat)](https://www.gnu.org/licenses/agpl-3.0.en.html)
 ![Platforms Windows | macOS | Linux](https://img.shields.io/badge/Platforms-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg?style=flat)
 
-## Welcome to the AUTARQ Office Desktop Editors repo!
+## Welcome to AUTARQ Office
 
-[AUTARQ Office Desktop Editors](https://github.com/Autarq/DesktopEditors) is a free office suite that combines text, spreadsheet, presentation, PDF, and diagram editing in one desktop app. The application allows creating, viewing and editing documents stored on your Windows/Linux PC or Mac without an Internet connection. It is fully compatible with Office Open XML formats: .docx, .xlsx, .pptx.
+[AUTARQ Office](https://github.com/Autarq/DesktopEditors) is a free office suite that combines text, spreadsheet, presentation, PDF, forms, and diagram viewers in one desktop application. It creates, views, and edits local documents on Windows, Linux, and macOS without requiring an Internet connection and supports Office Open XML formats such as `.docx`, `.xlsx`, and `.pptx`.
 
 ## Features you'll love ✨
 
-Take advantage of the powerful editors included in Desktop Editors.
+Take advantage of the editors included in AUTARQ Office.
 
 * Document Editor
 * Spreadsheet Editor
@@ -19,14 +19,13 @@ Take advantage of the powerful editors included in Desktop Editors.
 The suite empowers you to create, edit, save, and export text documents, spreadsheets, presentations, PDFs, fill out PDF forms, open diagrams, all while offering additional advanced features such as:
 
 * Connection to the cloud (Moodle, Nextcloud, ownCloud, Seafile, Liferay, kDrive) for real-time collaboration ☁️
-* AI-powered assistants 🤖
 * Digital signatures ✍️🔏
 * Password protection 🔒🔑
 * Scalable UI options (including dark mode 🌓)
 
 ## Localization 🌐
 
- Constantly improving localization of the editors to make the suite accessible to all users, all over the world.
+Constantly improving localization of the editors to make the suite accessible to all users, all over the world.
 
 * Interface available in 46 languages
 * RTL support
@@ -34,91 +33,53 @@ The suite empowers you to create, edit, save, and export text documents, spreads
 
 ## Plugins 🧩
 
-Desktop Editors offer support for plugins allowing developers to add specific features to the editors that are not directly related to the OOXML format.
+AUTARQ Office supports plugins that extend the editors without changing the OOXML engine.
 
 ## Components 📦
 
-Desktop Editors contain the following components:
+AUTARQ Office contains the following components:
 
-* [desktop-apps](desktop-apps) - the frontend for Desktop Editors which is used to build the program interface for the operating system selected.
-* [desktop-sdk](desktop-sdk) - SDK which is a core part of Desktop Editors.
-* [core](core) - server core components for [Document Server][1] which is a part of Desktop Editors and is used to enable the conversion between the most popular office document formats (DOC, DOCX, ODT, RTF, TXT, PDF, HTML, EPUB, XPS, DjVu, XLS, XLSX, ODS, CSV, PPT, PPTX, ODP).
-* [sdkjs](sdkjs) - JavaScript SDK for the [Document Server][1] which is a part of Desktop Editors and contains API for all the included components client-side interaction.
-* [web-apps](web-apps) - the frontend for [Document Server][1] which is a part of Desktop Editors that allows the user to create, edit, save and export text, spreadsheet and presentation documents using the common interface of a document editor.
-* [dictionaries](dictionaries) - the dictionaries of various languages used for spellchecking in Desktop Editors.
+* [desktop-apps](https://github.com/Autarq/desktop-apps) - native desktop shell and start page.
+* [desktop-sdk](https://github.com/Autarq/desktop-sdk) - shared desktop SDK.
+* [core](https://github.com/Autarq/core) - document conversion and processing components.
+* [sdkjs](https://github.com/Autarq/sdkjs) - client-side editor SDK.
+* [web-apps](https://github.com/Autarq/web-apps) - document, spreadsheet, presentation, PDF, forms, and diagram editor UI.
+* [dictionaries](https://github.com/Autarq/dictionaries) - spellchecking dictionaries.
 
-## Build AUTARQ Office macOS apps
+## Build it yourself 🛠️
 
-The AUTARQ macOS build is orchestrated from `DesktopEditors/build`, next to the
-existing Linux build entrypoint. On Apple Silicon it produces one suite app:
-
-* `AUTARQ Office.app`
-
-### Requirements
-
-* Apple Silicon Mac
-* Xcode installed and selected with `xcode-select`
-* Git and Python 3
-* Qt 5, for example Homebrew `qt@5`
-* At least 120 GiB free disk space for native dependencies and build output
-
-### Build steps
-
-Clone the AUTARQ GitHub fork with submodules:
+You can build AUTARQ Office from source on **Windows**, **Linux**, and **macOS**. This is a
+super-repository, so the first step is always to check out the submodules:
 
 ```sh
-mkdir -p ~/Dev/autarq-office-desktop
-cd ~/Dev/autarq-office-desktop
-
-git clone \
-  --branch autarq-office \
-  https://github.com/Autarq/DesktopEditors.git
-
+git clone --branch autarq-office https://github.com/Autarq/DesktopEditors.git
 cd DesktopEditors
-git submodule sync --recursive
 git submodule update --init --recursive
 ```
 
-Run the macOS preflight and build:
+Then head to the build docs:
 
-```sh
-cd build
-./macos/build.sh --check
-MIN_FREE_GIB=120 ./macos/build.sh arm64
-```
+* **[build/](./build/README.md)** — start here for the overall build model (the
+  shared CMake definition, the common editors payload, vcpkg, and caching).
+* **[build/windows/](./build/windows/README.md)** — the Windows build (`build.ps1`, MSVC + CMake).
+* **[build/linux/](./build/linux/README.md)** — the Linux build (Docker / `docker buildx bake`).
+* **[build/macos/](./build/macos/README.md)** — the Apple Silicon build (Xcode / `build.sh`).
 
-The apps are written to:
+## Get involved 🤝
 
-```text
-DesktopEditors/build/deploy/macos/arm64/AUTARQ Office.app
-```
+Contributions are welcome! Whether it's a bug report, a feature idea, a
+translation, or a pull request, here's how to take part:
 
-The macOS exporter also installs the pinned ONLYOFFICE draw.io plugin into the
-suite bundle.
+* **Found a bug or have an idea?** Open an [issue](https://github.com/Autarq/DesktopEditors/issues)
+  and describe what you ran into or what you'd like to see.
+* **Want to contribute code?** Fork the relevant [component](#components-) repo,
+  make your change, and open a pull request. For build changes, see the
+  [build docs](./build/README.md) above.
+* **Want to help translate?** Localization improvements to the editors'
+  interfaces are always appreciated.
 
-It also preconfigures the bundled AI agent with the AUTARQ OpenAI-compatible
-endpoint. For private local builds, pass `AUTARQ_AI_API_KEY` to embed a key into
-the generated `.app`; leave it unset for commits and shared source builds.
-
-For local `desktop-apps` development, keep a sibling checkout and point the
-build at it:
-
-```sh
-DESKTOP_APPS_DIR=~/Dev/autarq-office-desktop/desktop-apps \
-  MIN_FREE_GIB=120 ./macos/build.sh arm64
-```
-
-Without a Developer ID identity the apps are ad-hoc signed and suitable for
-local testing. Release signing and notarization require the usual Developer ID
-and notarization credentials.
-
-More details and troubleshooting notes live in [`build/README.md`](build/README.md).
+Please keep contributions compatible with the project's AGPL v3 license.
 
 ## License 📄
 
-Desktop Editors is licensed under the GNU Affero Public License, version 3.0,
-with upstream legal notices retained. AUTARQ Office is a public fork of
-Euro-Office/ONLYOFFICE Desktop Editors; see [`NOTICE-AUTARQ.md`](NOTICE-AUTARQ.md)
-and the license files in each submodule before redistributing binaries.
-
-  [1]: https://github.com/Autarq/DocumentServer
+AUTARQ Office is licensed under the GNU Affero General Public License, version 3.0. It is based on Euro-Office and ONLYOFFICE; see [ATTRIBUTION](./ATTRIBUTION) for the retained upstream notices.

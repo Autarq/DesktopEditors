@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+NEXTCLOUD_USER=""
+NEXTCLOUD_PASS=""
+REGISTRY="ghcr.io/autarq"
+TAG="latest"
+PRODUCT_VERSION=$(cat ../../VERSION.txt)
+BUILD_NUMBER="dev.0"
+BRANDING_DIR="../"
+COMPANY_NAME="AUTARQ"
+PRODUCT_NAME="Office"
+GIT_COMMIT=$(git rev-parse --short HEAD)
+
+export NEXTCLOUD_USER NEXTCLOUD_PASS REGISTRY TAG PRODUCT_VERSION \
+       BUILD_NUMBER BRANDING_DIR COMPANY_NAME PRODUCT_NAME GIT_COMMIT
+
+docker buildx bake -f ../docker-bake.hcl -f docker-bake.hcl packages \
+       --set "desktop-linux.contexts.desktop-common=target:desktop-common" \
+       --set "*.context=../.."

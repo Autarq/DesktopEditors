@@ -1,0 +1,196 @@
+name: AUTARQ Office Builds
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - autarq-office
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io/autarq
+  PRODUCT_VERSION: 9.3.1
+  BUILD_NUMBER: ${{ github.run_number }}
+  BUILD_ROOT: /package
+  COMPANY_NAME: AUTARQ
+  PRODUCT_NAME: Office
+
+jobs:
+  common:
+    name: Common editors payload
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: docker/setup-buildx-action@v3
+      - name: Build shared web and WASM payload
+        working-directory: build
+        run: |
+          docker buildx bake desktop-common \
+            --set "desktop-common.output=type=tar,dest=./common.tar" \
+            --allow=fs=/tmp \
+            --allow=fs.read=..
+      - uses: actions/upload-artifact@v4
+        with:
+          name: common-files
+          path: build/common.tar
+          compression-level: 0
+          if-no-files-found: error
+
+  linux:
+    name: Linux ${{ matrix.arch }} packages
+    needs: common
+    runs-on: ${{ matrix.runner }}
+    environment: release-signing
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    env:
+      LINUX_GPG_PRIVATE_KEY: ${{ secrets.LINUX_GPG_PRIVATE_KEY }}
+      LINUX_GPG_PASSPHRASE: ${{ secrets.LINUX_GPG_PASSPHRASE }}
+      LINUX_GPG_KEY_ID: ${{ secrets.LINUX_GPG_KEY_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/download-artifact@v4
+        with:
+          name: common-files
+          path: build/linux
+      - name: Extract common payload
+        run: |
+          mkdir -p build/linux/common
+          tar -xf build/linux/common.tar -C build/linux/common
+      - uses: docker/setup-buildx-action@v3
+      - name: Build deb and rpm packages
+        working-directory: build/linux
+        run: |
+          docker buildx bake \
+            -f ../docker-bake.hcl \
+            -f docker-bake.hcl \
+            packages \
+            --set "desktop-linux.contexts.desktop-common=./common" \
+            --set "*.context=../.." \
+            --allow=fs=/tmp \
+            --allow=fs.read=../..
+      - name: Install package signing tools
+        if: startsWith(github.ref, 'refs/tags/v') && env.LINUX_GPG_PRIVATE_KEY != ''
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gnupg rpm
+      - name: Sign release packages
+        if: startsWith(github.ref, 'refs/tags/v') && env.LINUX_GPG_PRIVATE_KEY != ''
+        env:
+          OUTPUT_DIR: ${{ github.workspace }}/build/linux/deploy/packages
+        run: build/linux/sign-packages.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AUTARQ-Office-linux-${{ matrix.arch }}
+          path: build/linux/deploy/packages/*
+          if-no-files-found: error
+
+  windows:
+    name: Windows x64 package
+    needs: common
+    runs-on: windows-2022
+    environment: release-signing
+    timeout-minutes: 360
+    env:
+      PYTHONUTF8: "1"
+      SCCACHE_GHA_ENABLED: "true"
+      WINDOWS_CODE_SIGNING_PFX_BASE64: ${{ secrets.WINDOWS_CODE_SIGNING_PFX_BASE64 }}
+      WINDOWS_CODE_SIGNING_PFX_PASSWORD: ${{ secrets.WINDOWS_CODE_SIGNING_PFX_PASSWORD }}
+      WINDOWS_CODE_SIGNING_CERT_SUBJECT: ${{ secrets.WINDOWS_CODE_SIGNING_CERT_SUBJECT }}
+      WINDOWS_TIMESTAMP_SERVER: ${{ vars.WINDOWS_TIMESTAMP_SERVER || 'http://timestamp.digicert.com' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/download-artifact@v4
+        with:
+          name: common-files
+          path: .
+      - name: Extract common payload
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path .\common | Out-Null
+          tar -xf .\common.tar -C .\common
+      - name: Install Cygwin
+        uses: cygwin/cygwin-install-action@v4
+        with:
+          install-dir: C:\cygwin64
+          add-to-path: false
+          packages: automake cmake make git python3 python3-devel
+      - name: Install native build tools
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade --break-system-packages aqtinstall
+          choco install ninja innosetup 7zip -y --no-progress
+      - uses: mozilla-actions/sccache-action@v0.0.10
+      - uses: lukka/run-vcpkg@v11
+      - name: Import Authenticode certificate for tagged releases
+        if: startsWith(github.ref, 'refs/tags/v') && env.WINDOWS_CODE_SIGNING_PFX_BASE64 != '' && env.WINDOWS_CODE_SIGNING_PFX_PASSWORD != ''
+        shell: pwsh
+        run: |
+          .\build\windows\import-code-signing-cert.ps1 `
+            -PfxBase64 "$env:WINDOWS_CODE_SIGNING_PFX_BASE64" `
+            -Password "$env:WINDOWS_CODE_SIGNING_PFX_PASSWORD"
+      - name: Build and package AUTARQ Office
+        shell: pwsh
+        run: |
+          $sign = "${{ startsWith(github.ref, 'refs/tags/v') }}" -eq "true" -and `
+            -not [string]::IsNullOrWhiteSpace($env:WINDOWS_CODE_SIGNING_PFX_BASE64) -and `
+            -not [string]::IsNullOrWhiteSpace($env:WINDOWS_CODE_SIGNING_PFX_PASSWORD) -and `
+            -not [string]::IsNullOrWhiteSpace($env:WINDOWS_CODE_SIGNING_CERT_SUBJECT)
+
+          $params = @{
+            CommonDir = "${{ github.workspace }}\common"
+            ProductVersion = "${{ env.PRODUCT_VERSION }}"
+            BuildNumber = "${{ env.BUILD_NUMBER }}"
+            Arch = "x64"
+            Target = "standalone"
+            CompanyName = "AUTARQ"
+            ProductName = "Office"
+          }
+          if ($sign) {
+            $params.Sign = $true
+            $params.CertName = $env:WINDOWS_CODE_SIGNING_CERT_SUBJECT
+            $params.TimestampServer = $env:WINDOWS_TIMESTAMP_SERVER
+          } else {
+            Write-Host "Building unsigned Windows packages; signing is enabled only for tagged releases with complete secrets."
+          }
+
+          .\build\windows\build.ps1 @params
+      - name: Verify Authenticode signatures
+        if: startsWith(github.ref, 'refs/tags/v') && env.WINDOWS_CODE_SIGNING_CERT_SUBJECT != ''
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem desktop-apps\package -Recurse -File -Include *.exe,*.dll
+          if (-not $files) { throw "No Windows binaries found for signature verification." }
+          $invalid = $files | Where-Object { (Get-AuthenticodeSignature $_.FullName).Status -ne "Valid" }
+          if ($invalid) {
+            $invalid.FullName | Write-Error
+            throw "One or more Windows binaries have an invalid Authenticode signature."
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AUTARQ-Office-windows-x64
+          path: |
+            desktop-apps/package/zip/*.zip
+            desktop-apps/package/inno/*.exe
+            desktop-apps/package/advinst/*.msi
+          if-no-files-found: error

@@ -1,0 +1,12 @@
+diff --git a/scripts/build_js.py b/scripts/build_js.py
+index c9325a6..5323418 100644
+--- a/scripts/build_js.py
++++ b/scripts/build_js.py
+@@ -124,3 +124,7 @@ def build_interface(directory):
+   _run_npm(directory)
++  # Euro-Office web-apps uses a Grunt-free webpack pipeline. Keep Grunt as the
++  # fallback for desktop components that have not migrated yet.
++  if os.path.isfile(directory + "/scripts/build-pipeline.js"):
++    return base.cmd_in_dir(directory, "node", ["scripts/build-pipeline.js"])
+   _run_grunt(directory, ["--force", "--verbose"] + base.web_apps_addons_param())
+   return

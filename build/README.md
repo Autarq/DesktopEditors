@@ -1,323 +1,127 @@
-# AUTARQ Office Desktop Editors Builds
+# Building AUTARQ Office
 
-This directory contains the reproducible build entrypoints for AUTARQ Office
-Desktop Editors.
+This directory holds the reproducible build entrypoints for **AUTARQ Office**,
+an AGPL-3.0 fork based on Euro-Office and ONLYOFFICE.
 
-## Clone
+If you just want to build, go straight to your platform:
 
-Clone the repository with submodules:
+- **[Linux](./linux/README.md)** — a Docker-based build (`docker buildx bake`)
+- **[Windows](./windows/README.md)** — a PowerShell-driven MSVC build (`build.ps1`)
+- **[macOS](./macos/README.md)** — an Apple Silicon Xcode build (`build.sh`)
+
+The rest of this page explains the model shared by the platform builds. Read it
+once and the platform guides will make a lot more sense.
+
+## Prerequisites (all platforms)
+
+This is a *super-repository*: almost none of the source lives here directly. The
+real code is in submodules — `core`, `core-fonts`, `desktop-apps`, `desktop-sdk`,
+`dictionaries`, `document-templates`, `sdkjs`, `sdkjs-forms`, `web-apps`. You
+**must** check them out before building:
 
 ```sh
-git clone --branch autarq-office --recurse-submodules https://github.com/Autarq/DesktopEditors.git
-```
-
-If the repository was cloned without submodules, initialize them before building:
-
-```sh
+git clone --branch autarq-office https://github.com/Autarq/DesktopEditors.git
+cd DesktopEditors
 git submodule update --init --recursive
 ```
 
-## AUTARQ GitHub Quick Start
+Every command in these guides assumes you are running from the **repository
+root** (the directory that contains this `build/` folder), not from inside
+`build/` itself.
 
-The AUTARQ desktop repositories are public forks in the GitHub organization:
+## Plugin policy
 
-```text
-https://github.com/Autarq
-```
+The upstream AI Agent plugins are removed from AUTARQ build outputs. The generic
+plugin runtime remains available so the planned AUTARQ plugin can be added later
+without changing the editor integration model. Other bundled plugins, including
+Draw.io where supported, are unaffected.
 
-For Apple Silicon development, clone the AUTARQ Office branch directly and then
-initialize submodules from the branch-local `.gitmodules` file:
+## The Windows/Linux build model
 
-```sh
-mkdir -p ~/Dev/autarq-office-desktop
-cd ~/Dev/autarq-office-desktop
+A full Windows/Linux release is produced by three jobs in the **"AUTARQ Office
+Builds"** CI workflow:
 
-git clone \
-  --branch autarq-office \
-  https://github.com/Autarq/DesktopEditors.git
+| Job             | Runs on          | Produces                                                                       |
+| --------------- | ---------------- | ------------------------------------------------------------------------------ |
+| `common`  | Linux / Docker   | the JS + WASM **editors web payload** ("common"), published as `common-files`  |
+| `linux`   | Linux / Docker   | the desktop app + Linux packages                                               |
+| `windows` | Windows / MSVC   | the desktop app + ZIP and Inno installer (optionally an MSI)                   |
 
-cd DesktopEditors
-git submodule sync --recursive
-git submodule update --init --recursive
+The single most important thing to understand:
 
-cd build
-./macos/build.sh --check
-MIN_FREE_GIB=120 ./macos/build.sh arm64
-```
+> **Both `linux` and `windows` consume the output of `common`.**
 
-The branch pins all desktop build submodules to matching public `Autarq/*`
-forks:
+`common` compiles the web editors (HTML/JS) and the core WASM once, on
+Linux, because that part is platform-independent. The two desktop builds then
+overlay that payload onto the native application they compile. So when you build
+the desktop app, you don't rebuild the editors — you **supply** them. How you
+supply them differs per platform and is covered in each guide.
 
-```text
-https://github.com/Autarq/desktop-apps.git
-https://github.com/Autarq/desktop-sdk.git
-https://github.com/Autarq/core.git
-https://github.com/Autarq/sdkjs.git
-https://github.com/Autarq/web-apps.git
-```
+## Build *definition* vs. build *orchestration*
 
-Developers can still override the app checkout explicitly while testing local
-changes:
+The build is split into two layers, and keeping them straight is the key to
+understanding why there are two very different-looking build systems here:
 
-```sh
-DESKTOP_APPS_DIR=~/Dev/autarq-office-desktop/desktop-apps ./macos/build.sh arm64
-```
+- **The build definition** — *what* to compile and how to link it — lives in
+  **`desktop-apps/win-linux/CMakeLists.txt`**. This is a single, shared,
+  cross-platform CMake project. It is the same on Linux and Windows.
 
-## Linux
+- **The orchestration** — provision a toolchain, fetch dependencies, invoke
+  CMake, run post-build steps, package — is **per-platform**:
+  - Linux: a Dockerfile driven by `docker-bake.hcl` (see [linux/](./linux/README.md))
+  - Windows: `windows/build.ps1` (see [windows/](./windows/README.md))
 
-Linux builds continue to use Docker Buildx Bake:
+Both orchestrators do essentially the same sequence — configure CMake with the
+vcpkg toolchain and a compiler cache, build, install, overlay the common payload,
+generate fonts and theme thumbnails, package — just with platform-appropriate
+tooling.
 
-```sh
-cd DesktopEditors/build
-docker buildx bake --allow=fs=/tmp --allow=fs.read=..
-```
+### Why not just use Docker for both?
 
-The exported desktop build is written to:
+The native Windows toolchain (MSVC, Qt, CEF, the v8 engine, the Windows SDK)
+cannot be hermetically containerized on the standard hosted runners the way the
+Linux toolchain can, and a Linux container obviously can't emit Windows binaries.
+So the Linux build is a clean, reproducible Docker build, while the Windows build
+is a script that provisions and runs against the host. The asymmetry is
+deliberate, not an oversight.
 
-```text
-DesktopEditors/build/deploy/desktop
-```
+## Shared concepts
 
-To create Linux packages from that export, install `fpm` and run:
+These apply to both platforms; the platform guides won't repeat them.
 
-```sh
-cd DesktopEditors/build
-./linux/package.sh all
-```
+### Dependencies via vcpkg (manifest mode)
 
-The package output is written to:
+Native third-party libraries are resolved by **vcpkg in manifest mode**. The
+manifest and its version pins live in **`core/vcpkg.json`** (`VCPKG_MANIFEST_DIR`
+points CMake at `core`). The exact dependency versions are pinned through the
+manifest's `builtin-baseline`, so a fresh checkout of vcpkg still resolves the
+same versions. If a bleeding-edge vcpkg HEAD ever misbehaves, check out the
+baseline commit referenced in `core/vcpkg.json`.
 
-```text
-DesktopEditors/build/deploy/linux/packages
-```
+### Compiler caching + the Ninja generator
 
-## macOS
+Both builds use a compiler cache to avoid recompiling unchanged translation
+units — **ccache** on Linux, **sccache** on Windows — wired in through
+`CMAKE_C_COMPILER_LAUNCHER` / `CMAKE_CXX_COMPILER_LAUNCHER`. Because of that,
+**both builds use the Ninja generator**: MSBuild ignores the compiler-launcher
+variables, Ninja honours them. The cache is optional locally (the build just runs
+slower without it) but strongly recommended in CI.
 
-macOS builds must run on a macOS host with Xcode installed. Xcode application
-builds are not wrapped in Docker; the host build entrypoint lives next to the
-Linux bake file:
+### Versioning and branding
 
-```sh
-cd DesktopEditors/build
-./macos/build.sh --check
-./macos/build.sh arm64
-```
+These come from the workflow's top-level environment and can be overridden
+locally:
 
-For a fresh Apple Silicon machine, use this full flow:
+| Variable                          | Meaning                                  | Default                |
+| --------------------------------- | ---------------------------------------- | ---------------------- |
+| `PRODUCT_VERSION`                 | marketing version                        | `9.3.1`                |
+| `BUILD_NUMBER`                    | build identifier                         | `dev.1`                |
+| `COMPANY_NAME` / `PRODUCT_NAME`   | combined for package and About-page branding | `AUTARQ` / `Office` |
 
-```sh
-mkdir -p ~/Dev/autarq-office-desktop
-cd ~/Dev/autarq-office-desktop
+## Where to go next
 
-git clone \
-  --branch autarq-office \
-  https://github.com/Autarq/DesktopEditors.git
-
-cd DesktopEditors
-git submodule sync --recursive
-git submodule update --init --recursive
-
-cd build
-./macos/build.sh --check
-MIN_FREE_GIB=120 ./macos/build.sh arm64
-```
-
-The default macOS output is one AUTARQ-branded suite app:
-
-```text
-DesktopEditors/build/deploy/macos/arm64/AUTARQ Office.app
-```
-
-The macOS build currently targets Apple Silicon first. Intel and universal
-builds can be added later using the same `build/macos` layout.
-
-## Windows
-
-Windows x64 builds use the pinned `build_tools` checkout to create a native
-payload under `build_tools/out/win_64/AUTARQ/DesktopEditors`, then package it
-with the upstream PowerShell scripts under `desktop-apps/package`.
-
-```powershell
-cd DesktopEditors
-.\build\windows\build.ps1 -Arch x64 -QtRoot C:/Qt/5.15.2
-.\build\windows\package.ps1 -Arch x64
-```
-
-Expected native payload path:
-
-```text
-DesktopEditors\build_tools\out\win_64\AUTARQ\DesktopEditors
-```
-
-The package wrapper still supports prebuilt payloads. That keeps release runs
-explicit when packaging is repeated on a workspace where the native payload was
-already created.
-
-## Release Signing
-
-Optional release signing is documented in [`SIGNING.md`](SIGNING.md). The
-GitHub workflows use the `release-signing` environment and skip signing when
-the required environment secrets are not configured.
-
-At a high level:
-
-- macOS uses Developer ID Application signing plus Apple notarization.
-- Windows uses an Authenticode code-signing certificate imported from a PFX
-  secret and signs binaries before ZIP packaging.
-- Linux signs generated `.deb` and `.rpm` packages with the AUTARQ GPG release
-  key when configured.
-
-## Homebrew
-
-The Homebrew Cask template lives under
-[`homebrew/Casks/autarq-office.rb`](homebrew/Casks/autarq-office.rb). Copy that
-file into a public `Autarq/homebrew-tap` repository to make the macOS ZIP
-installable with:
-
-```sh
-brew tap Autarq/tap
-brew install --cask autarq-office
-```
-
-## GitHub Actions
-
-The AUTARQ fork includes three build workflows:
-
-- `macOS ARM64`: preflight on PR/push and a manual full Apple Silicon app build.
-- `Linux Packages`: Docker Buildx Bake plus `.deb` and `.rpm` packaging.
-- `Windows Package`: validates the Windows build/package wrappers on PR/push,
-  and on manual dispatch builds the hosted x64 payload plus ZIP package by
-  default.
-
-The Windows workflow has two manual modes:
-
-- `full_build=true` builds the x64 payload from source on the hosted runner,
-  then packages it.
-- `package_prebuilt_payload=true` skips compilation and packages an existing
-  `build_tools/out/win_64/AUTARQ/DesktopEditors` payload.
-
-GitHub-hosted macOS ARM runners currently have much less free disk space than a
-local release build machine. The hosted workflow keeps the preflight threshold
-low enough to validate Xcode, Qt and script wiring. Full release builds should
-run on an Apple Silicon runner with roughly 120 GiB free disk space.
-
-### macOS Requirements
-
-- macOS on Apple Silicon
-- Xcode command line tools selected with `xcode-select`
-- Python 3
-- Git
-- Qt available through `QT_DIR` or a Homebrew Qt install
-- Enough free space for native dependencies and the Xcode build
-
-Optional release tooling:
-
-- `gh` for PR and release workflows
-- Developer ID signing identity for distributable builds
-- notarization credentials for a future signed release flow
-
-### macOS Environment
-
-The script has conservative defaults and can be tuned with environment
-variables:
-
-```sh
-MIN_FREE_GIB=150                 # minimum free disk space check
-EO_SKIP_SPACE_CHECK=1            # bypass the free-space guard
-QT_DIR=/path/to/qt-root          # contains <version>/macos/bin/qmake or <version>/clang_64/bin/qmake
-DESKTOP_APPS_DIR=/path/to/desktop-apps
-EO_MACOS_PRODUCTS=suite          # default suite app; split/all/comma list are developer overrides
-DRAWIO_PLUGIN_ARCHIVE=/path/to/drawio.plugin
-AUTARQ_AI_BASE_URL=https://llm.autarq.now/v1/
-AUTARQ_AI_PROVIDER_NAME="AUTARQ Office AI"
-AUTARQ_AI_API_KEY=<optional local key>
-AUTARQ_AI_MODEL=<optional default model id>
-BUILD_TOOLS_REV=<commit>         # ONLYOFFICE/build_tools revision
-CODESIGNING_IDENTITY="Developer ID Application: ..."
-DEVELOPMENT_TEAM=<team-id>
-EO_SKIP_LAUNCH=1                 # skip the local launch smoke test
-```
-
-The exporter installs the upstream ONLYOFFICE draw.io plugin into the staged
-suite bundle. By default the plugin archive is downloaded once into
-`build/deploy/macos/tools/drawio` and verified by SHA-256; set
-`DRAWIO_PLUGIN_ARCHIVE` to use a locally cached archive.
-
-The exporter also preconfigures the bundled AI agent plugin with the AUTARQ
-OpenAI-compatible endpoint. Leave `AUTARQ_AI_API_KEY` unset for source builds;
-set it only for a local/private build where embedding the key into the resulting
-`.app` bundle is acceptable. The key is never written to tracked files.
-
-If `QT_DIR` points at a root directory and Homebrew Qt is available, the script
-creates a build-tools compatible layout such as `<QT_DIR>/5.15.18/macos`.
-
-`DESKTOP_APPS_DIR` is optional. It is useful while the matching `desktop-apps`
-macOS branding branch is still under review; after that branch is merged,
-`DesktopEditors` can point its `desktop-apps` submodule at the upstream commit.
-Upstream `build_tools` still reads `desktop-apps/common/loginpage` from the
-`DesktopEditors` repo root, so the wrapper temporarily links the external
-checkout into that submodule path during the build and restores the empty path
-on exit. Xcode build phases also resolve `../../build_tools`, `../../core`,
-`../../desktop-sdk`, and the dictionaries folder from the `desktop-apps/macos`
-checkout, so the wrapper temporarily links those sibling paths under
-`<desktop-apps-parent>` back to the matching `DesktopEditors` directories while
-using an external checkout.
-
-Without a Developer ID identity the app build is ad-hoc signed and suitable for
-local testing. Release DMG signing and notarization remain gated on Developer ID
-and notarization credentials.
-
-Some upstream `build_tools` steps still call `python`. When macOS only provides
-`python3`, `build/macos/build.sh` adds a local `python` shim under
-`build/deploy/macos/tools/bin` for the duration of the build.
-
-The JavaScript build steps call `grunt` directly after `npm install`. The macOS
-wrapper adds a local `grunt` shim under `build/deploy/macos/tools/bin` that
-executes the `node_modules/.bin/grunt` from the current project directory,
-avoiding any global npm dependency. `build_tools` sets `NODE_ENV=production`
-before those installs, so the wrapper also sets `NPM_CONFIG_INCLUDE=dev`; this
-keeps npm 10+ from omitting Gruntfile helper packages such as `time-grunt`.
-
-The HEIF dependency path in `build_tools` currently requires CMake `>= 3.21`
-and `< 4`. If the host only has CMake 4 or no CMake, the script creates a
-temporary local CMake venv under `build/deploy/macos/tools/cmake-venv`.
-
-The pinned `build_tools` HEIF module fetches x265 from Bitbucket, which can be
-unavailable on hosted runners. The macOS and Windows wrappers apply the shared
-`build/patches/build-tools-heif-x265-archive-fallback.patch` patch before
-building so x265 is fetched from release tarball mirrors first and the original
-Git source remains a fallback. Set `EO_X265_ARCHIVE_URLS` to override the
-mirror list.
-
-The macOS wrapper also exports fetched `katana-parser/src`, `gumbo-parser/src`,
-`hyphen`, and `hunspell/hunspell/src` include paths for the qmake build, which
-otherwise cannot resolve headers such as `katana.h`, `gumbo.h`,
-`hyphen/hnjalloc.h`, and `hunspell/hunspell.h`.
-
-If a previous run left an incomplete Boost output under
-`core/Common/3dParty/boost/build/mac_arm64`, the wrapper removes that generated
-directory before calling `build_tools` so `libboost_filesystem.a`,
-`libboost_date_time.a`, and `libboost_regex.a` are rebuilt.
-
-For current Xcode/Clang compatibility with the pinned Boost 1.72 headers, the
-wrapper also patches the local Boost.DateTime `hours`, `minutes`, and `seconds`
-helper constructors that otherwise instantiate Boost numeric conversion paths
-rejected by current Clang.
-
-For current Xcode/Clang compatibility with the pinned Boost 1.72 and iWork
-sources, the wrapper prefetches the generated iWork third-party sources and
-patches a small set of `libetonyek` `numeric_cast<int>` and
-`numeric_cast<unsigned>` calls that otherwise trip Boost MPL enum constant
-evaluation.
-
-The same compatibility pass patches the ODF table border width casts used by
-the PPTX and XLSX converters from `boost::lexical_cast<int>` to a direct cast,
-avoiding another Boost numeric conversion instantiation rejected by current
-Clang.
-
-### macOS Verification
-
-`build/macos/build.sh arm64` verifies the generated application by checking the
-main executable architecture and running strict codesign verification. Unless
-`EO_SKIP_LAUNCH=1` is set, it also opens the app once as a local launch smoke
-test.
+- Building on **[Linux](./linux/README.md)**
+- Building on **[Windows](./windows/README.md)**
+- Building on **[macOS](./macos/README.md)**
+- Release signing: **[SIGNING.md](./SIGNING.md)**
+- Homebrew distribution: **[homebrew/](./homebrew/README.md)**

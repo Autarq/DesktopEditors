@@ -4,49 +4,43 @@
 # docker-bake.hcl file in this monorepo.
 # ==============================================================================
 
-FROM desktop-builder AS desktop-composer
+FROM sdkjs-desktop AS sdkjs-desktop-without-ai-agent
+    ARG BUILD_ROOT
+    RUN rm -rf \
+        "${BUILD_ROOT}/sdkjs-plugins/{9DC93CDB-B576-4F0C-B55E-FCC9C48DD777}" \
+        "${BUILD_ROOT}/sdkjs-plugins/{F2402876-659F-47FB-A646-67B49F2B5AAA}"
 
-    COPY --from=sdkjs-desktop ${BUILD_ROOT} /desktopeditors/editors/
-    COPY --from=web-apps ${BUILD_ROOT} /desktopeditors/editors/
+FROM scratch AS desktop-common
+    ARG BUILD_ROOT
 
-    COPY --from=desktop-js /app/loginpage/deploy/index.html /desktopeditors/index.html
-    COPY --from=desktop-js /app/loginpage/deploy/noconnect.html /desktopeditors/editors/webext/noconnect.html
+    COPY --from=sdkjs-desktop-without-ai-agent ${BUILD_ROOT} /editors/
+    COPY --from=web-apps ${BUILD_ROOT} /editors/
 
-    COPY web-apps/apps/api/documents/index.html.desktop /desktopeditors/editors/web-apps/apps/api/documents/index.html
+    COPY --from=desktop-js /app/loginpage/deploy/index.html /index.html
+    COPY --from=desktop-js /app/loginpage/deploy/noconnect.html /editors/webext/noconnect.html
+
+    COPY web-apps/apps/api/documents/index.html.desktop /editors/web-apps/apps/api/documents/index.html
     
-    COPY desktop-apps/common/converter/* /desktopeditors/converter/
-    COPY desktop-apps/common/loginpage/providers /desktopeditors/providers
-    COPY desktop-apps/common/templates /desktopeditors/converter/templates
+    COPY desktop-apps/common/converter/* /converter/
+    # Support only Nextcloud for now
+    COPY desktop-apps/common/loginpage/providers/nextcloud /providers/nextcloud
+    COPY desktop-apps/common/templates /converter/templates
 
-    COPY build/configs/core/DoctRenderer.config.desktop /desktopeditors/converter/DoctRenderer.config
+    COPY desktop-sdk/ChromiumBasedEditors/resources/ /editors/sdkjs/common/Images/
+
+    COPY build/configs/core/DoctRenderer.config.desktop /converter/DoctRenderer.config
     
-    COPY document-templates/new /desktopeditors/converter/empty
+    COPY document-templates/new /converter/empty
 
-    COPY dictionaries/ /desktopeditors/dictionaries
+    COPY dictionaries/ /dictionaries
     
 
-    COPY core-fonts/opensans   /desktopeditors/fonts
-    COPY core-fonts/asana      /desktopeditors/fonts/asana
-    COPY core-fonts/caladea    /desktopeditors/fonts/caladea
-    COPY core-fonts/crosextra  /desktopeditors/fonts/crosextra
-    COPY core-fonts/openoffice /desktopeditors/fonts/openoffice
-    COPY core-fonts/ASC.ttf    /desktopeditors/fonts/ASC.ttf
+    COPY core-fonts/opensans   /fonts
+    COPY core-fonts/asana      /fonts/asana
+    COPY core-fonts/caladea    /fonts/caladea
+    COPY core-fonts/crosextra  /fonts/crosextra
+    COPY core-fonts/openoffice /fonts/openoffice
+    COPY core-fonts/ASC.ttf    /fonts/ASC.ttf
 
-    RUN /desktopeditors/converter/allfontsgen \
-        --use-system=1 \
-        --input=/desktopeditors/fonts \
-        --input=/core-fonts \
-        --allfonts=/desktopeditors/converter/AllFonts.js \
-        --selection=/desktopeditors/converter/font_selection.bin 
-    
-    RUN /desktopeditors/converter/allthemesgen \
-        --converter-dir=/desktopeditors/converter \
-        --src=/desktopeditors/editors/sdkjs/slide/themes \
-        --allfonts=/desktopeditors/converter/AllFonts.js \
-        --output=/desktopeditors/editors/sdkjs/common/Images
-
-    RUN echo 'LD_LIBRARY_PATH=$PWD:$PWD/converter:$LD_LIBRARY_PATH LD_PRELOAD=libcef.so ./DesktopEditors' > /desktopeditors/start_desktop.sh && \
-        chmod +x /desktopeditors/start_desktop.sh
-
-FROM scratch AS desktop-export
-    COPY --from=desktop-composer /desktopeditors /
+    # Create sdkjs-plugins dir in scratch image
+    WORKDIR /editors/sdkjs-plugins

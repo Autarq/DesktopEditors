@@ -8,7 +8,7 @@ REPO_ROOT="$(cd "${BUILD_DIR}/.." && pwd)"
 PRODUCT_FAMILY_NAME="${PRODUCT_FAMILY_NAME:-AUTARQ}"
 PRODUCT_NAME="${PRODUCT_NAME:-${PRODUCT_FAMILY_NAME} Office}"
 PRODUCT_SLUG="${PRODUCT_SLUG:-autarq-office}"
-PRODUCT_REPO_URL="${PRODUCT_REPO_URL:-https://repo.mwaysolutions.com/blockscape/autarq/office/desktop-apps}"
+PRODUCT_REPO_URL="${PRODUCT_REPO_URL:-https://github.com/Autarq}"
 BUNDLE_ID="${PRODUCT_BUNDLE_IDENTIFIER:-com.autarq.office}"
 LEGACY_PRODUCT_FAMILY_NAME="${LEGACY_PRODUCT_FAMILY_NAME:-}"
 if [[ -z "${LEGACY_PRODUCT_FAMILY_NAME}" ]]; then
@@ -48,17 +48,16 @@ BUILD_TOOLS_DIR="${REPO_ROOT}/build_tools"
 BUILD_TOOLS_PATCH_DIR="${BUILD_DIR}/patches"
 DESKTOP_APPS_DIR="${DESKTOP_APPS_DIR:-${REPO_ROOT}/desktop-apps}"
 XCODE_PROJECT="${DESKTOP_APPS_DIR}/macos/ONLYOFFICE.xcodeproj"
-AI_PLUGIN_ID="{9DC93CDB-B576-4F0C-B55E-FCC9C48DD777}"
-AUTARQ_AI_PROVIDER_NAME="${AUTARQ_AI_PROVIDER_NAME:-AUTARQ Office AI}"
-AUTARQ_AI_BASE_URL="${AUTARQ_AI_BASE_URL:-https://llm.autarq.now/v1/}"
-AUTARQ_AI_MODEL="${AUTARQ_AI_MODEL:-}"
-AUTARQ_AI_MODEL_NAME="${AUTARQ_AI_MODEL_NAME:-${AUTARQ_AI_MODEL}}"
 
 PREFLIGHT_FAILURES=0
 EXTERNAL_DESKTOP_APPS_LINK=""
 EXTERNAL_REPO_SIBLING_LINKS=()
 BUILT_XCODE_APP=""
 STAGED_APPS=()
+BUNDLED_AI_AGENT_PLUGIN_IDS=(
+  "{9DC93CDB-B576-4F0C-B55E-FCC9C48DD777}"
+  "{F2402876-659F-47FB-A646-67B49F2B5AAA}"
+)
 
 cleanup_external_desktop_apps_link() {
   if [[ -n "${EXTERNAL_DESKTOP_APPS_LINK}" && -L "${EXTERNAL_DESKTOP_APPS_LINK}" ]]; then
@@ -90,10 +89,6 @@ Environment:
   BUILD_TOOLS_REV=${BUILD_TOOLS_REV}
   EO_MACOS_PRODUCTS=suite|split|text,spreadsheet,presentation,pdf
   DRAWIO_PLUGIN_ARCHIVE=/path/to/drawio.plugin
-  AUTARQ_AI_BASE_URL=${AUTARQ_AI_BASE_URL}
-  AUTARQ_AI_PROVIDER_NAME="${AUTARQ_AI_PROVIDER_NAME}"
-  AUTARQ_AI_API_KEY=<optional build-time key>
-  AUTARQ_AI_MODEL=<optional default model id>
   CODESIGNING_IDENTITY="Developer ID Application: ..."
   DEVELOPMENT_TEAM=<team-id>
   EO_SKIP_LAUNCH=1
@@ -485,6 +480,7 @@ ensure_build_tools() {
   git -C "${BUILD_TOOLS_DIR}" fetch --tags origin
   git -C "${BUILD_TOOLS_DIR}" checkout "${BUILD_TOOLS_REV}"
   apply_build_tools_patch "${BUILD_TOOLS_PATCH_DIR}/build-tools-heif-x265-archive-fallback.patch"
+  apply_build_tools_patch "${BUILD_TOOLS_PATCH_DIR}/build-tools-web-apps-webpack-pipeline.patch"
 }
 
 apply_build_tools_patch() {
@@ -1182,128 +1178,14 @@ component_supports_drawio_plugin() {
   esac
 }
 
-configure_autarq_ai_provider() {
+remove_bundled_ai_agent_plugins() {
   local app="$1"
-  local plugin_dir="${app}/Contents/Resources/editors/sdkjs-plugins/${AI_PLUGIN_ID}"
-  local index_html="${plugin_dir}/index.html"
-  local defaults_js="${plugin_dir}/autarq-ai-defaults.js"
+  local plugins_dir="${app}/Contents/Resources/editors/sdkjs-plugins"
+  local plugin_id
 
-  if [[ ! -d "${plugin_dir}" ]]; then
-    fail "AI agent plugin missing under ${app}"
-  fi
-  if [[ ! -f "${index_html}" ]]; then
-    fail "AI agent index.html missing under ${plugin_dir}"
-  fi
-
-  AUTARQ_AI_PROVIDER_NAME="${AUTARQ_AI_PROVIDER_NAME}" \
-  AUTARQ_AI_BASE_URL="${AUTARQ_AI_BASE_URL}" \
-  AUTARQ_AI_API_KEY="${AUTARQ_AI_API_KEY:-}" \
-  AUTARQ_AI_MODEL="${AUTARQ_AI_MODEL}" \
-  AUTARQ_AI_MODEL_NAME="${AUTARQ_AI_MODEL_NAME}" \
-  python3 - "${defaults_js}" "${index_html}" <<'PY'
-import json
-import os
-import sys
-from pathlib import Path
-
-defaults_js = Path(sys.argv[1])
-index_html = Path(sys.argv[2])
-
-provider = {
-    "type": "openaicompatible",
-    "name": os.environ["AUTARQ_AI_PROVIDER_NAME"],
-    "baseUrl": os.environ["AUTARQ_AI_BASE_URL"],
-}
-api_key = os.environ.get("AUTARQ_AI_API_KEY", "")
-if api_key:
-    provider["key"] = api_key
-
-model_id = os.environ.get("AUTARQ_AI_MODEL", "").strip()
-model = None
-if model_id:
-    model = {
-        "id": model_id,
-        "name": os.environ.get("AUTARQ_AI_MODEL_NAME", "").strip() or model_id,
-        "provider": "openaicompatible",
-    }
-
-payload = json.dumps({"provider": provider, "model": model}, ensure_ascii=True)
-defaults_js.write_text(
-    """(function () {
-  const config = __PAYLOAD__;
-  const provider = config.provider;
-  const model = config.model;
-  const providersKey = "providers";
-  const currentProviderKey = "current-provider";
-  const currentModelKey = "current-model";
-
-  function readJson(key, fallback) {
-    try {
-      const value = localStorage.getItem(key);
-      return value ? JSON.parse(value) : fallback;
-    } catch (_) {
-      return fallback;
-    }
-  }
-
-  function isAutarqProvider(item) {
-    return !!item && item.type === provider.type &&
-      (item.name === provider.name || item.baseUrl === provider.baseUrl);
-  }
-
-  let providers = readJson(providersKey, []);
-  providers = Array.isArray(providers) ? providers : [];
-
-  const existingIndex = providers.findIndex(isAutarqProvider);
-  if (existingIndex >= 0) {
-    providers[existingIndex] = Object.assign({}, providers[existingIndex], provider);
-  } else {
-    providers.unshift(provider);
-  }
-  localStorage.setItem(providersKey, JSON.stringify(providers));
-
-  const currentProvider = readJson(currentProviderKey, null);
-  if (!currentProvider || isAutarqProvider(currentProvider)) {
-    localStorage.setItem(currentProviderKey, JSON.stringify(provider));
-  }
-
-  const currentModel = readJson(currentModelKey, null);
-  if (model) {
-    if (!currentModel || currentModel.provider === provider.type) {
-      localStorage.setItem(currentModelKey, JSON.stringify(model));
-    }
-  } else if (currentModel && currentModel.provider && currentModel.provider !== provider.type) {
-    localStorage.removeItem(currentModelKey);
-  }
-})();\n""".replace("__PAYLOAD__", payload),
-    encoding="utf-8",
-)
-
-html = index_html.read_text(encoding="utf-8")
-script_tag = '    <script src="autarq-ai-defaults.js"></script>'
-module_tag = '    <script type="module" crossorigin src="index.js"></script>'
-if script_tag not in html:
-    if module_tag not in html:
-        raise SystemExit("Could not find AI agent index.js script tag")
-    html = html.replace(module_tag, f"{script_tag}\n{module_tag}", 1)
-    index_html.write_text(html, encoding="utf-8")
-PY
-
-  if [[ -n "${AUTARQ_AI_API_KEY:-}" ]]; then
-    warn "AUTARQ_AI_API_KEY was embedded into local app bundle ${app}; it is not written to tracked source files"
-  fi
-}
-
-verify_autarq_ai_provider() {
-  local app="$1"
-  local plugin_dir="${app}/Contents/Resources/editors/sdkjs-plugins/${AI_PLUGIN_ID}"
-  local defaults_js="${plugin_dir}/autarq-ai-defaults.js"
-  local index_html="${plugin_dir}/index.html"
-
-  [[ -f "${defaults_js}" ]] || fail "AUTARQ AI defaults missing: ${defaults_js}"
-  [[ -f "${index_html}" ]] || fail "AI agent index.html missing: ${index_html}"
-  grep -q 'autarq-ai-defaults.js' "${index_html}" || fail "AI defaults script is not loaded by ${index_html}"
-  grep -q "${AUTARQ_AI_BASE_URL}" "${defaults_js}" || fail "AUTARQ AI base URL missing from ${defaults_js}"
+  for plugin_id in "${BUNDLED_AI_AGENT_PLUGIN_IDS[@]}"; do
+    rm -rf "${plugins_dir}/${plugin_id}"
+  done
 }
 
 build_xcode_app() {
@@ -1369,10 +1251,10 @@ stage_product_app() {
   rm -rf "${app}"
   ditto "${BUILT_XCODE_APP}" "${app}"
   sanitize_exported_app_resources "${app}"
+  remove_bundled_ai_agent_plugins "${app}"
   if component_supports_drawio_plugin "${component}"; then
     install_drawio_plugin "${app}"
   fi
-  configure_autarq_ai_provider "${app}"
 
   if [[ "${component}" != "suite" ]]; then
     old_exe="${app}/Contents/MacOS/${PRODUCT_NAME}"
@@ -1477,7 +1359,12 @@ verify_app() {
       fail "AppIcon.icns does not match ${icon_path} for ${app_name}"
     fi
   fi
-  verify_autarq_ai_provider "${app}"
+  local plugin_id
+  for plugin_id in "${BUNDLED_AI_AGENT_PLUGIN_IDS[@]}"; do
+    if [[ -e "${app}/Contents/Resources/editors/sdkjs-plugins/${plugin_id}" ]]; then
+      fail "bundled AI agent plugin is still present in ${app}: ${plugin_id}"
+    fi
+  done
 
   if [[ ! -x "${exe}" ]]; then
     local candidate

@@ -1,8 +1,8 @@
 # AUTARQ Office Release Signing
 
 Release signing is wired through the GitHub environment `release-signing`.
-Builds still work without signing secrets; the workflows skip signing when the
-required secrets are absent.
+Builds still work without signing secrets. Signing is enabled for version tags
+only and is skipped when the required secrets are absent.
 
 ## GitHub Environment
 
@@ -70,8 +70,8 @@ Required external setup:
 5. Set `WINDOWS_CODE_SIGNING_CERT_SUBJECT` to the subject fragment used by
    `signtool /n`, for example `AUTARQ`.
 
-The Windows workflow imports the PFX into the current-user certificate store
-and passes `-Sign` to the existing packaging script. The package script signs
+The Windows job imports the PFX into the current-user certificate store and
+passes `-Sign` to the packaging script. The package script signs
 `.exe` and `.dll` files with SHA-256 and an RFC3161 timestamp before creating
 the ZIP.
 
@@ -83,7 +83,7 @@ Required secrets:
 - `LINUX_GPG_PASSPHRASE`
 - `LINUX_GPG_KEY_ID`
 
-The Linux workflow creates detached GPG signatures for every generated `.deb`
+The Linux job creates detached GPG signatures for every generated `.deb`
 and `.rpm` file. RPM files are additionally signed in-place with `rpmsign`.
 It also exports `autarq-office-packaging-key.asc` next to the packages so users
 can import the public key.
