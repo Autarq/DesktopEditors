@@ -74,6 +74,7 @@ location, so it works regardless of your current directory):
 | `-InstallDeps`    | Install Cygwin, VS components, and packaging tools (admin; one-time)   | off                    |
 | `-BuildMsi`       | Also build the MSI with Advanced Installer (needs a license)          | off                    |
 | `-SkipPackaging`  | Build and install only; skip ZIP / installer steps                    | off                    |
+| `-ThirdPartyRoot` | Core third-party work/install root                                    | CMake default locally; `RUNNER_TEMP` in CI |
 | `-Sign`           | Authenticode-sign staged binaries and the installer                    | off                    |
 | `-CertName`       | Certificate subject fragment passed to `signtool`                     | `AUTARQ`               |
 | `-TimestampServer`| RFC3161 timestamp endpoint                                             | DigiCert               |
@@ -106,6 +107,10 @@ then at `<RepoRoot>\desktopeditors`.
   compiler cache (and says so). With it, object files are cached by content hash;
   embedded debug info (`/Z7`) is required for caching to work and the script sets
   it for you.
+- **CI isolates transient third-party sources.** GitHub Actions places Core's
+  third-party work and install trees below `RUNNER_TEMP` and pins CMake to the
+  native `python` already verified on `PATH`. Local builds keep CMake's normal
+  build-directory layout unless `-ThirdPartyRoot` is supplied explicitly.
 - **The packaging step pulls a couple of inputs at build time.** It stages the
   VC++ redistributable and fetches Inno Setup's "unofficial" language files (which
   no stock Inno install ships) into the Inno `Languages` folder. Both run on every

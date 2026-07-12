@@ -51,6 +51,11 @@
     Also build the MSI with Advanced Installer. Off by default to match the
     workflow, where the MSI step is currently commented out. Requires a license.
 
+.PARAMETER ThirdPartyRoot
+    Optional root for Core third-party work and install directories. GitHub
+    Actions defaults this to RUNNER_TEMP so transient source trees stay outside
+    the checkout. Local builds retain CMake's normal build-directory default.
+
 .EXAMPLE
     # Common content already at .\common, all tools installed:
     .\build-windows.ps1
@@ -80,6 +85,7 @@ param(
 
     # Tool locations / install knobs.
     [string]$VcpkgRoot      = $env:VCPKG_ROOT,
+    [string]$ThirdPartyRoot = '',
     [string]$CygwinRoot     = 'C:\cygwin64',
     [string]$InnoRoot       = "${env:ProgramFiles(x86)}\Inno Setup 6",
     [string]$SevenZipRoot   = 'C:\Program Files\7-Zip',
@@ -423,14 +429,25 @@ Either download the 'common-files' CI artifact and pass -CommonDir, or rerun wit
     # is how the compiler cache attaches. cl.exe is already on PATH from the
     # vcvars import above; the target arch follows vcvars (x64 via vcvars64).
     Write-Step "7. CMake Configure"
+    $nativePython = (Get-Command python -ErrorAction Stop).Source
     $cmakeArgs = @(
         '-G', 'Ninja',
         '-DCMAKE_BUILD_TYPE=Release',
         "-DCMAKE_TOOLCHAIN_FILE=$($env:VCPKG_ROOT)\scripts\buildsystems\vcpkg.cmake",
         '-DVCPKG_MANIFEST_MODE=ON',
         '-DVCPKG_MANIFEST_DIR=core',
+        "-DPYTHON_BIN=$($nativePython -replace '\\', '/')",
         '-DABOUT_PAGE_APP_NAME=AUTARQ Office'
     )
+    if (-not $ThirdPartyRoot -and $script:InActions -and $env:RUNNER_TEMP) {
+        $ThirdPartyRoot = Join-Path $env:RUNNER_TEMP 'autarq-office-third-party'
+    }
+    if ($ThirdPartyRoot) {
+        $ThirdPartyRoot = [System.IO.Path]::GetFullPath($ThirdPartyRoot)
+        New-Item -ItemType Directory -Force -Path $ThirdPartyRoot | Out-Null
+        $cmakeArgs += "-DEO_CORE_3RD_PARTY_DIR=$($ThirdPartyRoot -replace '\\', '/')"
+        Write-Host "Core third-party root: $ThirdPartyRoot"
+    }
     # sccache caches MSVC object files by content hash and (with
     # SCCACHE_GHA_ENABLED=true) persists them in the GitHub Actions cache, so a
     # re-run recompiles only what changed. /Z7 embedded debug info is REQUIRED -
