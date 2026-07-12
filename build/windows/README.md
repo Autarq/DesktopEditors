@@ -84,9 +84,10 @@ location, so it works regardless of your current directory):
 
 In order: validate the repo layout → *(optional)* install dependencies →
 resolve the common payload → set up a deterministic `PATH` (native tools ahead of
-Cygwin) and import the MSVC environment → set up vcpkg → CMake configure (Ninja,
-Release, vcpkg toolchain, sccache if present) → build → install → overlay the
-common payload → generate fonts (`allfontsgen`) and theme thumbnails
+Cygwin) and import the MSVC environment → set up vcpkg → prebuild OpenSSL with
+the native-only MSVC toolchain → CMake configure (Ninja, Release, vcpkg
+toolchain, sccache if present) → build → install → overlay the common payload →
+generate fonts (`allfontsgen`) and theme thumbnails
 (`allthemesgen`) → package (ZIP, Inno installer, optional MSI).
 
 ## Output
@@ -111,6 +112,10 @@ then at `<RepoRoot>\desktopeditors`.
   third-party work and install trees below `RUNNER_TEMP` and pins CMake to the
   native `python` already verified on `PATH`. Local builds keep CMake's normal
   build-directory layout unless `-ThirdPartyRoot` is supplied explicitly.
+- **OpenSSL is prepared before the aggregate CMake configure.** Its `nmake`
+  build runs with Cygwin removed from `PATH`, writes the normal Core install
+  marker, and is therefore reused rather than rebuilt by the later third-party
+  orchestrator.
 - **The packaging step pulls a couple of inputs at build time.** It stages the
   VC++ redistributable and fetches Inno Setup's "unofficial" language files (which
   no stock Inno install ships) into the Inno `Languages` folder. Both run on every

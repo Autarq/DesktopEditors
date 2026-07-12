@@ -131,6 +131,15 @@ $PackageDir  = Join-Path $RepoRoot 'desktop-apps\package'
 $script:InActions = ($env:GITHUB_ACTIONS -eq 'true')
 $script:GroupOpen = $false
 
+if (-not $ThirdPartyRoot) {
+    if ($script:InActions -and $env:RUNNER_TEMP) {
+        $ThirdPartyRoot = Join-Path $env:RUNNER_TEMP 'autarq-office-third-party'
+    } else {
+        $ThirdPartyRoot = Join-Path $RepoRoot 'third_party'
+    }
+}
+$ThirdPartyRoot = [System.IO.Path]::GetFullPath($ThirdPartyRoot)
+
 function Write-Step([string]$Msg) {
     if ($script:InActions) {
         if ($script:GroupOpen) { Write-Host '::endgroup::' }
@@ -423,13 +432,45 @@ Either download the 'common-files' CI artifact and pass -CommonDir, or rerun wit
     Write-Step "Loading MSVC environment (vcvars)"
     Import-VcVars -Arch $Arch -SdkVersion $WinSdkVersion
 
+    # OpenSSL's nmake build is sensitive to Unix toolchains appearing ahead of
+    # the native MSVC tools. Build it once in a native-only PATH before CMake
+    # captures the aggregate third-party output. The normal Core orchestrator
+    # then observes the install marker and skips rebuilding it.
+    Write-Step "6b. Prebuilding OpenSSL in the native MSVC environment"
+    $nativePython = (Get-Command python -ErrorAction Stop).Source
+    $opensslScript = Join-Path $RepoRoot 'core\Common\3dParty\openssl\nc-build.py'
+    $opensslWork = Join-Path $ThirdPartyRoot 'work\openssl'
+    $opensslInstall = Join-Path $ThirdPartyRoot 'install\openssl'
+    New-Item -ItemType Directory -Force -Path $ThirdPartyRoot | Out-Null
+
+    $fullPath = $env:PATH
+    try {
+        $env:PATH = (($fullPath -split ';') | Where-Object {
+            $_ -and ($_.Trim() -notlike "$CygwinRoot\*")
+        }) -join ';'
+
+        & $nativePython $opensslScript $opensslWork $opensslInstall
+        Assert-LastExit "Native OpenSSL prebuild"
+    } finally {
+        $env:PATH = $fullPath
+    }
+
+    foreach ($requiredPath in @(
+        (Join-Path $opensslInstall 'lib\libcrypto.lib'),
+        (Join-Path $opensslInstall 'lib\libssl.lib'),
+        (Join-Path $opensslInstall 'ok_marker')
+    )) {
+        if (-not (Test-Path -LiteralPath $requiredPath)) {
+            throw "Native OpenSSL prebuild did not produce '$requiredPath'."
+        }
+    }
+
     # ───────────────────────── 7. CMake Configure ───────────────────────────
     # Generator is Ninja (NOT the VS/MSBuild generator) on purpose: MSBuild
     # ignores CMAKE_<LANG>_COMPILER_LAUNCHER, Ninja honors it - that launcher
     # is how the compiler cache attaches. cl.exe is already on PATH from the
     # vcvars import above; the target arch follows vcvars (x64 via vcvars64).
     Write-Step "7. CMake Configure"
-    $nativePython = (Get-Command python -ErrorAction Stop).Source
     $cmakeArgs = @(
         '-G', 'Ninja',
         '-DCMAKE_BUILD_TYPE=Release',
@@ -439,15 +480,8 @@ Either download the 'common-files' CI artifact and pass -CommonDir, or rerun wit
         "-DPYTHON_BIN=$($nativePython -replace '\\', '/')",
         '-DABOUT_PAGE_APP_NAME=AUTARQ Office'
     )
-    if (-not $ThirdPartyRoot -and $script:InActions -and $env:RUNNER_TEMP) {
-        $ThirdPartyRoot = Join-Path $env:RUNNER_TEMP 'autarq-office-third-party'
-    }
-    if ($ThirdPartyRoot) {
-        $ThirdPartyRoot = [System.IO.Path]::GetFullPath($ThirdPartyRoot)
-        New-Item -ItemType Directory -Force -Path $ThirdPartyRoot | Out-Null
-        $cmakeArgs += "-DEO_CORE_3RD_PARTY_DIR=$($ThirdPartyRoot -replace '\\', '/')"
-        Write-Host "Core third-party root: $ThirdPartyRoot"
-    }
+    $cmakeArgs += "-DEO_CORE_3RD_PARTY_DIR=$($ThirdPartyRoot -replace '\\', '/')"
+    Write-Host "Core third-party root: $ThirdPartyRoot"
     # sccache caches MSVC object files by content hash and (with
     # SCCACHE_GHA_ENABLED=true) persists them in the GitHub Actions cache, so a
     # re-run recompiles only what changed. /Z7 embedded debug info is REQUIRED -
